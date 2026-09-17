@@ -34,9 +34,38 @@
 | 异步任务 | 提交、调度、执行、重试 |
 | AI 工作流 | 多步骤、多模型调用、多 Worker 协作 |
 
+## 原语
+
+| 原语 | 语义 | 状态 |
+| --- | --- | --- |
+| Task | 一份可被调度、执行、追踪的工作的描述 | 已实现 |
+
 ## 待确定
 
-- 原语清单与各自语义
+- 原语清单中其余原语与各自语义
 - 任务与工作流的持久化模型
 - 调度策略与 Worker 通信协议
 - 失败检测、重试与恢复策略
+
+## 目录
+
+| 路径 | 用途 |
+| --- | --- |
+| `src/` | 平台实现，按 src 布局组织 |
+| `src/workflow_engine/` | 平台源码包，模块名 `workflow_engine` |
+| `pyproject.toml` | 打包配置，声明 `src` 为源码根 |
+| `referrences/` | 参考资料 |
+
+## 运行
+
+源码位于 `src/` 下，需把 `src` 放进导入路径，或在仓库根目录做一次可编辑安装：
+
+```bash
+pip install -e .
+```
+
+未安装时，临时导入方式：
+
+```bash
+PYTHONPATH=src python -c "from workflow_engine import Task"
+```
