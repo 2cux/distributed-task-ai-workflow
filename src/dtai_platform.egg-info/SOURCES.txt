@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-src/dtai_platform.egg-info/PKG-INFO
-src/dtai_platform.egg-info/SOURCES.txt
-src/dtai_platform.egg-info/dependency_links.txt
-src/dtai_platform.egg-info/top_level.txt
-src/workflow_engine/__init__.py
-src/workflow_engine/task.py
-tests/test_task.py
