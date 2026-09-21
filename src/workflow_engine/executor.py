@@ -1,12 +1,16 @@
 """任务的同步执行器。
 
 本模块只负责单个任务的一次执行及其生命周期更新；不包含队列、并发、
-调度、重试或持久化。
+调度、重试或持久化。任务是否需要在失败后再次执行由重试策略决定，执行器
+只把这一次执行的结果或异常写回任务。
 """
 
 from __future__ import annotations
 
 from .task import Task, TaskStatus
+
+#: 允许进入执行的状态：首次执行的 PENDING 与被重试策略重新入队的 RETRYING。
+EXECUTABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.PENDING, TaskStatus.RETRYING})
 
 
 class Executor:
@@ -15,15 +19,18 @@ class Executor:
     def execute(self, task: Task) -> Task:
         """执行一个待执行任务，并将结果或异常写回任务。
 
-        仅 ``PENDING`` 状态的任务可以执行。执行开始前任务会变为
-        ``RUNNING``；可调用对象正常返回时变为 ``SUCCESS``，抛出异常时
-        变为 ``FAILED``。异常会被记录在 ``task.error``，而不会向调用方
-        再次抛出。
+        仅 ``PENDING``（首次执行）与 ``RETRYING``（重试执行）状态的任务可以
+        执行。执行开始前任务会变为 ``RUNNING``；可调用对象正常返回时变为
+        ``SUCCESS``，抛出异常时变为 ``FAILED``。异常会被记录在 ``task.error``，
+        而不会向调用方再次抛出。
+
+        每次执行都会重置 ``result`` 与 ``error``：``error`` 只描述本次执行失败
+        了什么，上一次失败的异常在此之前已由重试策略保存到 ``last_error``。
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
-        if task.status is not TaskStatus.PENDING:
-            raise ValueError("只能执行 PENDING 状态的任务")
+        if task.status not in EXECUTABLE_STATUSES:
+            raise ValueError(f"只能执行 PENDING 或 RETRYING 状态的任务，当前状态为 {task.status.value}")
 
         task.status = TaskStatus.RUNNING
         task.result = None

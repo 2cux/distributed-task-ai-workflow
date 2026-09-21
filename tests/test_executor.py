@@ -47,6 +47,33 @@ class ExecutorTests(unittest.TestCase):
         self.assertIs(task.status, TaskStatus.SUCCESS)
         self.assertEqual(task.result, "kept")
 
+    def test_executes_retrying_task_and_resets_the_previous_error(self) -> None:
+        previous = RuntimeError("first attempt")
+        task = Task(
+            name="flaky",
+            callable=lambda: "recovered",
+            status=TaskStatus.RETRYING,
+            retry_count=1,
+            error=previous,
+            last_error=previous,
+        )
+
+        returned = Executor().execute(task)
+
+        self.assertIs(returned, task)
+        self.assertIs(task.status, TaskStatus.SUCCESS)
+        self.assertEqual(task.result, "recovered")
+        self.assertIsNone(task.error)
+        self.assertIs(task.last_error, previous)
+
+    def test_rejects_failed_task_without_consuming_a_retry(self) -> None:
+        task = Task(name="done", callable=lambda: None, status=TaskStatus.FAILED)
+
+        with self.assertRaisesRegex(ValueError, "RETRYING"):
+            Executor().execute(task)
+
+        self.assertIs(task.status, TaskStatus.FAILED)
+
     def test_rejects_non_task_value(self) -> None:
         with self.assertRaisesRegex(TypeError, "Task"):
             Executor().execute(object())  # type: ignore[arg-type]
