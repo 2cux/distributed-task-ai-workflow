@@ -17,6 +17,11 @@ Task 只是一份描述。它不负责调度或执行，也不执行重试；执
 - ``max_retries`` 允许的重试次数上限；``None`` 表示由重试策略决定
 - ``retry_count`` 已经安排过的重试次数，默认 0
 - ``last_error``  最近一次触发重试的异常，默认 None
+- ``timeout``     单次执行的超时上限（秒）；``None`` 表示由超时策略决定
+
+``timeout`` 描述的是"一次执行可以运行多久"，不是任务的总体时间预算：上限在
+每次执行开始时重新计时，任务被重试多次时每次尝试都拿到完整的一份上限。它是
+任务级的取值，具体上限由超时策略按"任务级优先、策略默认值兜底"解析。
 
 失败信息分成两个字段：``error`` 描述"这一次执行失败了什么"，会被重新执行
 覆盖；``last_error`` 保存"上一次失败留下的是什么"，仅在任务再次进入队列时
@@ -42,6 +47,7 @@ PENDING 到 FAILED 用于提交阶段就已判定失败的场景，例如可调�
 
 from __future__ import annotations
 
+import math
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -81,6 +87,9 @@ class Task:
     # last_error 只是"上一次失败留下了什么"的记账，不参与任务之间的比较，
     # 避免它让两个描述同一份工作的任务被判为不同。
     last_error: BaseException | None = field(default=None, compare=False)
+    # timeout 是"这份工作每次执行允许多久"的描述，参与比较；它不随重试计数
+    # 递减，因此不会变成任务的总体时间预算。
+    timeout: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
@@ -115,6 +124,11 @@ class Task:
             raise ValueError("retry_count 不能为负数")
         if self.last_error is not None and not isinstance(self.last_error, BaseException):
             raise TypeError("last_error 必须是异常对象")
+        if self.timeout is not None:
+            if isinstance(self.timeout, bool) or not isinstance(self.timeout, (int, float)):
+                raise TypeError("timeout 必须是有限正数或 None")
+            if not math.isfinite(self.timeout) or self.timeout <= 0:
+                raise ValueError("timeout 必须是有限正数或 None")
         if self.max_retries is not None and self.retry_count > self.max_retries:
             raise ValueError("retry_count 不能超过 max_retries")
         if self.status is TaskStatus.RETRYING and self.retry_count < 1:
@@ -154,8 +168,9 @@ class Task:
         retry = ""
         if self.retry_count > 0 or self.max_retries is not None:
             retry = f", retry_count={self.retry_count}, max_retries={self.max_retries}"
+        timeout = "" if self.timeout is None else f", timeout={self.timeout}"
 
         return (
             f"Task(id={self.id!r}, name={self.name!r}, "
-            f"priority={self.priority}, status={self.status.value}{retry})"
+            f"priority={self.priority}, status={self.status.value}{retry}{timeout})"
         )

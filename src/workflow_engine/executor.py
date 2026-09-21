@@ -3,9 +3,15 @@
 本模块只负责单个任务的一次执行及其生命周期更新；不包含队列、并发、
 调度、重试或持久化。任务是否需要在失败后再次执行由重试策略决定，执行器
 只把这一次执行的结果或异常写回任务。
+
+"一次执行"分成两件事：状态流转（本类）与如何调用任务的可调用对象
+（:meth:`Executor._invoke`）。默认实现直接在调用线程中同步调用；需要改变
+单次尝试执行方式的原语（例如超时）覆写这个扩展点即可，不必复制状态流转。
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from .task import Task, TaskStatus
 
@@ -37,7 +43,7 @@ class Executor:
         task.error = None
 
         try:
-            task.result = task.callable(*task.args, **task.kwargs)
+            task.result = self._invoke(task)
         except BaseException as error:
             task.error = error
             task.status = TaskStatus.FAILED
@@ -45,6 +51,15 @@ class Executor:
             task.status = TaskStatus.SUCCESS
 
         return task
+
+    def _invoke(self, task: Task) -> Any:
+        """调用任务的可调用对象并返回其结果。
+
+        这是"一次尝试"中唯一执行任务代码的地方。默认实现在当前线程中同步
+        调用；子类可以覆写它来改变单次尝试的执行方式，而不影响状态流转。
+        这里抛出的异常由 :meth:`execute` 按普通失败记录。
+        """
+        return task.callable(*task.args, **task.kwargs)
 
 
 def execute(task: Task) -> Task:

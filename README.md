@@ -44,6 +44,8 @@
 | Worker | 从队列取出任务并同步交给执行器 | 已实现 |
 | Scheduler | 接收任务、入队并启动 Worker 执行当前队列 | 已实现 |
 | RetryPolicy | 判断失败任务是否还有剩余重试次数 | 已实现 |
+| TimeoutPolicy | 给出"一次执行"的超时上限，任务级优先、策略默认值兜底 | 已实现 |
+| TimeoutExecutor | 同步执行单次尝试并施加超时上限的执行器 | 已实现 |
 
 ## 任务生命周期
 
@@ -78,12 +80,61 @@ PENDING ──> RUNNING ──> SUCCESS
 - 不配置 `RetryPolicy` 时 Worker 行为与之前完全一致：失败任务停留在 `FAILED`。
 - `Scheduler` 契约不变，仍只负责入队与启动 Worker；重试由 Worker 与策略完成。
 
+## 超时
+
+超时限制的是**一次尝试（attempt）**，不是任务生命周期的总时间：上限在每次执行
+开始时重新计时，任务被重试多次时每次尝试都拿到完整的一份上限。平台当前不提供
+"任务必须在某个时刻前全部完成"的总体截止时间。
+
+| 组件 | 职责 |
+| --- | --- |
+| Task | 只保存 `timeout`（秒，`None` 表示由策略决定），不执行超时判定 |
+| TimeoutPolicy | 只做取值：任务级上限优先、策略默认值兜底，两处都没有则不设上限 |
+| TimeoutExecutor | 编排：把上限交给 `run_with_timeout`，其余生命周期沿用 Executor |
+| run_with_timeout | 只做执行：限时运行一个可调用对象，到上限仍未结束就抛出 `TaskTimeoutError` |
+
+超时的那次执行以 `FAILED` 结束，`task.error` 是 `TaskTimeoutError`（继承内置
+`TimeoutError`）。它不消耗也不修改重试次数：是否重试仍由 `RetryPolicy` 判断，
+超时任务被重试时，下一次尝试重新获得完整上限。超时因此只是"一次失败"，不是一种
+特殊终态。
+
+接线方式：
+
+```python
+queue = TaskQueue()
+worker = Worker(queue, TimeoutExecutor(TimeoutPolicy(timeout=30)), RetryPolicy(max_retries=3))
+Scheduler(queue, worker).submit(Task(name="call-model", callable=call_model, timeout=5))
+```
+
+上面的任务每次执行最多 5 秒（任务级上限覆盖策略默认的 30 秒），最多执行 4 次
+（首次 + 3 次重试），每次都是独立的 5 秒。
+
+实现与边界：超时用"独立守护线程 + 限时等待"实现，属于**软超时**。到上限时调用方
+立即返回并把这次尝试判为失败，但已经开始的可调用对象不会被强行终止，它在后台
+继续运行，其返回值与异常都被丢弃，也不会再写回任务状态。因此：
+
+- 平台保证"这一次执行被判失败"，不保证"这次执行已经停止"，例如长阻塞的 I/O 仍会
+  占用线程直到自己结束。
+- 要在超时点真正终止执行，需要进程隔离与 Worker 强杀，属于后续阶段的能力；分布式
+  超时同样不在当前范围内。
+- 上限是"至少给到"的：判定超时只发生在上限时刻之后，刚好用完上限的执行不会被误判。
+
+对原有行为的影响：
+
+- 不设上限时 `TimeoutExecutor` 不引入额外线程，执行方式与 `Executor` 完全一致，
+  既有任务的行为不变。
+- `Executor` 的状态流转不变，只把"如何调用可调用对象"抽成 `_invoke` 扩展点。
+- `RetryPolicy`、`TaskQueue`、`Worker`、`Scheduler` 的职责与契约都不变：重试链路
+  不需要感知超时，超时只是一种普通失败。
+
 ## 待确定
 
 - 原语清单中其余原语与各自语义
 - 任务与工作流的持久化模型
 - 调度策略与 Worker 通信协议
-- 重试退避、超时与跨进程恢复策略
+- 重试退避与跨进程恢复策略
+- 硬超时：在超时点终止执行所需的进程隔离、Worker 强杀与分布式超时
+- 任务级总体截止时间，以及它与"单次尝试超时"的叠加规则
 
 ## 目录
 
