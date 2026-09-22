@@ -35,20 +35,24 @@ class Executor:
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
-        if task.status not in EXECUTABLE_STATUSES:
-            raise ValueError(f"只能执行 PENDING 或 RETRYING 状态的任务，当前状态为 {task.status.value}")
+        # 锁覆盖整个调用周期，而不是仅覆盖字段赋值。这样同一份 Task 即使被
+        # 两个调用方误提交，也不会同时运行两次；第二个调用方会在前者完成后
+        # 看到终态并被拒绝。不同任务使用不同锁，仍可并行执行。
+        with task._lock:
+            if task.status not in EXECUTABLE_STATUSES:
+                raise ValueError(f"只能执行 PENDING 或 RETRYING 状态的任务，当前状态为 {task.status.value}")
 
-        task.status = TaskStatus.RUNNING
-        task.result = None
-        task.error = None
+            task.status = TaskStatus.RUNNING
+            task.result = None
+            task.error = None
 
-        try:
-            task.result = self._invoke(task)
-        except BaseException as error:
-            task.error = error
-            task.status = TaskStatus.FAILED
-        else:
-            task.status = TaskStatus.SUCCESS
+            try:
+                task.result = self._invoke(task)
+            except BaseException as error:
+                task.error = error
+                task.status = TaskStatus.FAILED
+            else:
+                task.status = TaskStatus.SUCCESS
 
         return task
 

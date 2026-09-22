@@ -5,6 +5,7 @@
 """
 
 from .executor import Executor, execute
+from .concurrency import ConcurrentWorker
 from .queue import TaskQueue
 from .retry import RetryPolicy, RetryPolicyError, should_retry
 from .scheduler import Scheduler
@@ -20,6 +21,7 @@ from .worker import Worker
 
 __all__ = [
     "Executor",
+    "ConcurrentWorker",
     "RetryPolicy",
     "RetryPolicyError",
     "Scheduler",

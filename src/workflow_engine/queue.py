@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from collections import deque
+import threading
 
 from .task import Task, TaskStatus
 
@@ -29,6 +30,7 @@ class TaskQueue:
     def __init__(self) -> None:
         self._tasks: deque[Task] = deque()
         self._queued_ids: set[str] = set()
+        self._lock = threading.RLock()
 
     def enqueue(self, task: Task) -> None:
         """接收并保存一个待执行任务。
@@ -38,38 +40,45 @@ class TaskQueue:
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
-        if task.status not in QUEUEABLE_STATUSES:
-            raise ValueError(f"只有 PENDING 或 RETRYING 状态的任务可以入队，当前状态为 {task.status.value}")
-        if task.id in self._queued_ids:
-            raise ValueError(f"任务 {task.id!r} 已经在队列中，不能重复入队")
+        # 统一采用“队列锁 -> 任务锁”的顺序，令状态检查和去重检查成为一个
+        # 原子操作，多个提交线程不能把同一任务插入两次。
+        with self._lock:
+            with task._lock:
+                if task.status not in QUEUEABLE_STATUSES:
+                    raise ValueError(f"只有 PENDING 或 RETRYING 状态的任务可以入队，当前状态为 {task.status.value}")
+                if task.id in self._queued_ids:
+                    raise ValueError(f"任务 {task.id!r} 已经在队列中，不能重复入队")
 
-        self._tasks.append(task)
-        self._queued_ids.add(task.id)
+                self._tasks.append(task)
+                self._queued_ids.add(task.id)
 
     def dequeue(self) -> Task | None:
         """取出最早进入队列的任务；空队列返回 ``None``。"""
-        if self.is_empty():
-            return None
+        with self._lock:
+            if not self._tasks:
+                return None
 
-        task = self._tasks.popleft()
-        self._queued_ids.discard(task.id)
-
-        return task
+            task = self._tasks.popleft()
+            self._queued_ids.discard(task.id)
+            return task
 
     def is_empty(self) -> bool:
         """返回队列是否没有待处理任务。"""
-        return not self._tasks
+        with self._lock:
+            return not self._tasks
 
     def size(self) -> int:
         """返回队列中待处理任务的数量。"""
-        return len(self._tasks)
+        with self._lock:
+            return len(self._tasks)
 
     def contains(self, task: Task) -> bool:
         """返回给定任务当前是否在队列中。"""
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
 
-        return task.id in self._queued_ids
+        with self._lock:
+            return task.id in self._queued_ids
 
     def __contains__(self, task: object) -> bool:
-        return isinstance(task, Task) and task.id in self._queued_ids
+        return isinstance(task, Task) and self.contains(task)

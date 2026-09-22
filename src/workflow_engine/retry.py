@@ -59,10 +59,11 @@ class RetryPolicy:
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
-        if task.status is not TaskStatus.FAILED:
-            return False
+        with task._lock:
+            if task.status is not TaskStatus.FAILED:
+                return False
 
-        return self.can_retry(task)
+            return self.can_retry(task)
 
     def begin_retry(self, task: Task) -> Task:
         """为任务保留一次重试机会，并把它置为待重新执行的 ``RETRYING``。
@@ -73,15 +74,16 @@ class RetryPolicy:
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
-        if not self.should_retry(task):
-            raise RetryPolicyError(
-                f"任务 {task.name!r} 当前无法重试："
-                f"status={task.status.value}, retry_count={task.retry_count}, "
-                f"max_retries={self.limit_for(task)}"
-            )
+        with task._lock:
+            if not self.should_retry(task):
+                raise RetryPolicyError(
+                    f"任务 {task.name!r} 当前无法重试："
+                    f"status={task.status.value}, retry_count={task.retry_count}, "
+                    f"max_retries={self.limit_for(task)}"
+                )
 
-        task.last_error = task.error if task.error is not None else task.last_error
-        task.mark_retrying()
+            task.last_error = task.error if task.error is not None else task.last_error
+            task.mark_retrying()
 
         return task
 

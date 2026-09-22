@@ -46,6 +46,29 @@
 | RetryPolicy | 判断失败任务是否还有剩余重试次数 | 已实现 |
 | TimeoutPolicy | 给出"一次执行"的超时上限，任务级优先、策略默认值兜底 | 已实现 |
 | TimeoutExecutor | 同步执行单次尝试并施加超时上限的执行器 | 已实现 |
+| ConcurrentWorker | 固定大小线程池并发消费队列 | 已实现 |
+
+## 基础并发执行
+
+`ConcurrentWorker` 是当前阶段唯一的并发模型：它在一次 `run()` 调用中创建固定
+大小的进程内线程池，最多同时运行 `max_workers` 个不同任务；调用会处理已取出的
+任务及其重试，直到一次取批操作观察到队列为空后返回。不包含协程、分布式 Worker、
+后台常驻服务或动态扩缩容。
+
+```python
+queue = TaskQueue()
+worker = ConcurrentWorker(queue, Executor(), max_workers=4)
+scheduler = Scheduler(queue, worker)
+for number in range(10):
+    scheduler.submit(Task(name=f"job-{number}", callable=run_job, args=(number,)))
+completed = scheduler.start()
+```
+
+线程安全边界：`TaskQueue` 的入队、出队、去重与观察操作均受队列锁保护；每个
+`Task` 有独立生命周期锁，`Executor` 在执行期间持有该锁，因此同一个任务不会被
+同时执行两次，而不同任务不会彼此串行化。`run()` 的返回列表按提交到线程池的顺序
+排列，任务实际完成顺序不作保证。失败重试在一批任务均结束后进入下一批，避免同一
+任务的两个 attempt 重叠。
 
 ## 任务生命周期
 

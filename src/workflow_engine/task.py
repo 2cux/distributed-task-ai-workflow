@@ -48,6 +48,7 @@ PENDING 到 FAILED 用于提交阶段就已判定失败的场景，例如可调�
 from __future__ import annotations
 
 import math
+import threading
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -90,6 +91,9 @@ class Task:
     # timeout 是"这份工作每次执行允许多久"的描述，参与比较；它不随重试计数
     # 递减，因此不会变成任务的总体时间预算。
     timeout: float | None = None
+    # 不参与序列化、比较或公开构造参数；执行器与策略用它保证同一任务的
+    # 生命周期写入是原子的。不同 Task 各自持锁，故不会降低任务间并发度。
+    _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
