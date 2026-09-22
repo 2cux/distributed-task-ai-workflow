@@ -58,6 +58,28 @@ class SlowFirstAttempt:
         return f"attempt {self.calls}"
 
 
+class TimedOutAThenSuccessfulB:
+    """A 超时后仍阻塞；B 成功；随后允许 A 返回，用于验证结果不回写。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.calls_lock = threading.Lock()
+        self.a_started = threading.Event()
+        self.release_a = threading.Event()
+        self.a_finished = threading.Event()
+
+    def __call__(self) -> str:
+        with self.calls_lock:
+            self.calls += 1
+            attempt = self.calls
+        if attempt == 1:
+            self.a_started.set()
+            self.release_a.wait(5)
+            self.a_finished.set()
+            return "A: late"
+        return "B: accepted"
+
+
 class TimeoutTestCase(unittest.TestCase):
     """提供"跑不完的可调用对象"这一公共夹具。"""
 
@@ -354,6 +376,29 @@ class TimeoutExecutorTests(TimeoutTestCase):
 
 
 class TimeoutRetryTests(TimeoutTestCase):
+    def test_late_timed_out_attempt_cannot_overwrite_successful_retry_result(self) -> None:
+        callable_ = TimedOutAThenSuccessfulB()
+        self.addCleanup(callable_.release_a.set)
+        queue = TaskQueue()
+        task = Task(name="a-times-out-b-succeeds", callable=callable_, timeout=0.05, max_retries=1)
+        queue.enqueue(task)
+
+        processed = Worker(queue, TimeoutExecutor(), RetryPolicy()).run()
+
+        # B 已完成时，A 仍在后台运行；Task 必须先采用 B 的结果。
+        self.assertEqual(processed, [task, task])
+        self.assertEqual(callable_.calls, 2)
+        self.assertIs(task.status, TaskStatus.SUCCESS)
+        self.assertEqual(task.result, "B: accepted")
+        self.assertIsNone(task.error)
+
+        callable_.release_a.set()
+        self.assertTrue(callable_.a_finished.wait(1))
+        # A 晚到的返回值没有回写路径，不能覆盖 B 的终态和结果。
+        self.assertIs(task.status, TaskStatus.SUCCESS)
+        self.assertEqual(task.result, "B: accepted")
+        self.assertIsNone(task.error)
+
     def test_each_attempt_gets_a_fresh_budget(self) -> None:
         callable_ = self.slow_first_attempt()
         queue = TaskQueue()
