@@ -1,7 +1,8 @@
 """任务队列原语。
 
-当前阶段提供进程内、先进先出（FIFO）的任务暂存能力。队列只负责接收、
-保存和取出 :class:`Task`，不负责执行、持久化或并发协调。
+当前阶段提供进程内、稳定优先级的任务暂存能力。队列只负责接收、保存和
+取出 :class:`Task`，不负责执行、持久化或并发协调。数值更大的
+``Task.priority`` 会先被取出；优先级相同的任务保持先进先出（FIFO）顺序。
 
 队列对"什么任务可以进入"有两个约束，用来保证重试重新入队时 FIFO 语义与
 队列视图不被破坏：
@@ -15,7 +16,8 @@
 
 from __future__ import annotations
 
-from collections import deque
+import heapq
+from itertools import count
 import threading
 
 from .task import Task, TaskStatus
@@ -25,10 +27,12 @@ QUEUEABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.PENDING, TaskS
 
 
 class TaskQueue:
-    """用于暂存待执行任务的最小 FIFO 队列。"""
+    """用于暂存待执行任务的稳定优先级队列。"""
 
     def __init__(self) -> None:
-        self._tasks: deque[Task] = deque()
+        # ``heapq`` 是最小堆，故将优先级取负；序号保证同优先级的 FIFO。
+        self._tasks: list[tuple[int, int, Task]] = []
+        self._sequence = count()
         self._queued_ids: set[str] = set()
         self._lock = threading.RLock()
 
@@ -49,16 +53,16 @@ class TaskQueue:
                 if task.id in self._queued_ids:
                     raise ValueError(f"任务 {task.id!r} 已经在队列中，不能重复入队")
 
-                self._tasks.append(task)
+                heapq.heappush(self._tasks, (-task.priority, next(self._sequence), task))
                 self._queued_ids.add(task.id)
 
     def dequeue(self) -> Task | None:
-        """取出最早进入队列的任务；空队列返回 ``None``。"""
+        """取出最高优先级任务；同优先级时取出最早进入队列的任务。"""
         with self._lock:
             if not self._tasks:
                 return None
 
-            task = self._tasks.popleft()
+            _, _, task = heapq.heappop(self._tasks)
             self._queued_ids.discard(task.id)
             return task
 
