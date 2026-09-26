@@ -16,6 +16,8 @@ Task 只是一份描述。它不负责调度或执行，也不执行重试；执
 - ``error``       最近一次执行的异常
 - ``max_retries`` 允许的重试次数上限；``None`` 表示由重试策略决定
 - ``retry_count`` 已经安排过的重试次数，默认 0
+- ``attempt_count`` 已经开始过的执行次数，只读；它由执行器维护，用于确保
+  非重试任务不会被执行第二次
 - ``last_error``  最近一次触发重试的异常，默认 None
 - ``timeout``     单次执行的超时上限（秒）；``None`` 表示由超时策略决定
 
@@ -91,9 +93,36 @@ class Task:
     # timeout 是"这份工作每次执行允许多久"的描述，参与比较；它不随重试计数
     # 递减，因此不会变成任务的总体时间预算。
     timeout: float | None = None
+    # 只能由 Executor 在持有 _lock 时递增。它不是用户输入，也不是重试预算：
+    # 前者记录实际开始的次数，后者记录已安排的重试次数。
+    _attempt_count: int = field(default=0, init=False, repr=False, compare=False)
     # 不参与序列化、比较或公开构造参数；执行器与策略用它保证同一任务的
     # 生命周期写入是原子的。不同 Task 各自持锁，故不会降低任务间并发度。
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """维护状态字段的类型与单向生命周期约束。
+
+        ``status`` 是公开的观察字段，但不能被写成任意值或绕过合法转移。
+        初始化阶段没有旧状态，允许构造一个已有状态的任务（例如从存储恢复）；
+        之后所有写入都必须遵循状态图，因此 ``SUCCESS`` 不可能回到
+        ``RUNNING``。
+        """
+        if name == "status":
+            if not isinstance(value, TaskStatus):
+                raise TypeError("status 必须是 TaskStatus")
+            previous = self.__dict__.get("status")
+            if previous is not None:
+                allowed = {
+                    TaskStatus.PENDING: {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.FAILED},
+                    TaskStatus.RUNNING: {TaskStatus.SUCCESS, TaskStatus.FAILED},
+                    TaskStatus.FAILED: {TaskStatus.FAILED, TaskStatus.RETRYING},
+                    TaskStatus.RETRYING: {TaskStatus.RETRYING, TaskStatus.RUNNING},
+                    TaskStatus.SUCCESS: {TaskStatus.SUCCESS},
+                }
+                if value not in allowed[previous]:
+                    raise ValueError(f"不允许任务状态从 {previous.value} 转为 {value.value}")
+        super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
@@ -146,6 +175,21 @@ class Task:
 
         return max(self.max_retries - self.retry_count, 0)
 
+    @property
+    def attempt_count(self) -> int:
+        """返回已经开始过的执行次数。
+
+        该值只由执行器更新。它使 ``PENDING`` 成为只可执行一次的初始状态：
+        已完成首次尝试的任务必须先经失败/重试链路进入 ``RETRYING``，不能靠
+        再次入队绕过重试预算。
+        """
+        with self._lock:
+            return self._attempt_count
+
+    def _begin_attempt(self) -> None:
+        """记录一次已经获准开始的执行；仅供执行器在持锁时调用。"""
+        self._attempt_count += 1
+
     def can_retry(self) -> bool:
         """按任务自身的上限返回是否还有剩余重试次数。
 
@@ -164,6 +208,8 @@ class Task:
         """把失败的任务改写为等待重试状态，并消耗一次重试次数。"""
         if self.status is not TaskStatus.FAILED:
             raise ValueError(f"只有 FAILED 状态的任务可以进入 RETRYING，当前状态为 {self.status.value}")
+        if self.max_retries is not None and self.retry_count >= self.max_retries:
+            raise ValueError("任务已达到 max_retries，不能再次进入 RETRYING")
 
         self.retry_count += 1
         self.status = TaskStatus.RETRYING

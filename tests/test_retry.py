@@ -117,14 +117,10 @@ class BeginRetryTests(unittest.TestCase):
         self.assertIsInstance(task.last_error, RuntimeError)
 
     def test_records_only_the_error_that_triggered_the_retry(self) -> None:
-        first = RuntimeError("first attempt")
         second = RuntimeError("second attempt")
         policy = RetryPolicy(max_retries=3)
-        task = failed_task(error=first)
-
-        policy.begin_retry(task)
-        task.status = TaskStatus.FAILED
-        task.error = second
+        # 第二次失败由独立的恢复态描述，避免测试通过直接倒退状态来伪造 attempt。
+        task = failed_task(error=second, retry_count=1)
         policy.begin_retry(task)
 
         self.assertIs(task.error, second)

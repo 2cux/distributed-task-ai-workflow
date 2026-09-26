@@ -50,6 +50,8 @@ class TaskQueue:
             with task._lock:
                 if task.status not in QUEUEABLE_STATUSES:
                     raise ValueError(f"只有 PENDING 或 RETRYING 状态的任务可以入队，当前状态为 {task.status.value}")
+                if task.status is TaskStatus.PENDING and task.attempt_count != 0:
+                    raise ValueError("已经执行过首次尝试的任务不能以 PENDING 状态再次入队")
                 if task.id in self._queued_ids:
                     raise ValueError(f"任务 {task.id!r} 已经在队列中，不能重复入队")
 

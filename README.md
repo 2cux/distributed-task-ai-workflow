@@ -107,6 +107,22 @@ PENDING ──> RUNNING ──> SUCCESS
 - `PENDING` / `RETRYING` 都是"等待被执行"，也是队列唯一接受的状态。
 - `RETRYING` 表示已取到一次重试机会、等待重新执行；`FAILED` 与 `SUCCESS` 是终态。
 
+### 生命周期不变量
+
+引擎把以下条件当作运行边界上的硬约束，而不是调用方的约定：
+
+- `PENDING` 只对应尚未开始的首次 attempt；已开始过的非重试任务不能再次
+  入队或执行。
+- 状态只能是 `TaskStatus` 的合法成员；执行器只接受 `PENDING` 和 `RETRYING`，
+  因而 `SUCCESS`、`FAILED` 与 `RUNNING` 不会被重新执行。
+- 每次重试必须先由 `RetryPolicy` 将失败任务改为 `RETRYING` 并递增
+  `retry_count`；达到适用的 `max_retries` 后不再重新入队。
+- 每个队列中同一 task id 最多有一个待执行条目，且队列只含 `PENDING` 或
+  `RETRYING` 任务，避免同一 attempt 重复排队。
+- 超时与其他失败走同一条失败 -> 重试链路；一次超时 attempt 最多消耗并产生
+  一次重试。`Worker.run()` / `ConcurrentWorker.run()` 正常返回时，队列已清空，
+  已处理任务均处于 `SUCCESS` 或 `FAILED`，不会遗留 `RUNNING`。
+
 ## 重试
 
 重试链路是"失败 -> 判断剩余次数 -> 重新入队 -> 再执行"，职责划分如下：

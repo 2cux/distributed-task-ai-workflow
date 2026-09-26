@@ -41,8 +41,14 @@ class Executor:
         with task._lock:
             if task.status not in EXECUTABLE_STATUSES:
                 raise ValueError(f"只能执行 PENDING 或 RETRYING 状态的任务，当前状态为 {task.status.value}")
+            # PENDING 只代表尚未开始的首次尝试。一次尝试结束后，无论成功还是
+            # 失败，都不能把同一个任务伪装回 PENDING 来再次执行；失败任务只能
+            # 经 RetryPolicy 进入 RETRYING，因而会消耗明确的一次重试预算。
+            if task.status is TaskStatus.PENDING and task.attempt_count != 0:
+                raise ValueError("已经执行过首次尝试的任务不能以 PENDING 状态再次执行")
 
             task.status = TaskStatus.RUNNING
+            task._begin_attempt()
             task.result = None
             task.error = None
 
