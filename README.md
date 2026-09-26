@@ -47,6 +47,29 @@
 | TimeoutPolicy | 给出"一次执行"的超时上限，任务级优先、策略默认值兜底 | 已实现 |
 | TimeoutExecutor | 同步执行单次尝试并施加超时上限的执行器 | 已实现 |
 | ConcurrentWorker | 固定大小线程池并发消费队列 | 已实现 |
+| TaskEngine | 装配已有原语并提供提交与启动的统一入口 | 已实现 |
+
+## 统一入口
+
+`TaskEngine` 是面向调用方的系统边界：它只装配 `TaskQueue`、执行器、Worker、
+重试与超时策略，并把 `submit` / `start` 转发给已有组件；它不实现任务状态机、
+队列策略、重试决策或具体业务逻辑。
+
+```python
+from workflow_engine import RetryPolicy, Task, TaskEngine, TimeoutPolicy
+
+engine = TaskEngine(
+    retry_policy=RetryPolicy(max_retries=2),
+    timeout_policy=TimeoutPolicy(timeout=30),
+    max_workers=4,
+)
+task = engine.submit(Task(name="call-model", callable=call_model, timeout=5))
+completed_attempts = engine.start()
+```
+
+`submit()` 仅入队并返回同一个 `Task` 供状态追踪；`start()` 才开始处理当前队列。
+`max_workers=1` 使用同步 `Worker`，大于 1 时使用 `ConcurrentWorker`。即使没有
+设置默认超时策略，任务自身的 `timeout` 仍会通过 `TimeoutExecutor` 生效。
 
 ## 基础并发执行
 
