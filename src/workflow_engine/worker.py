@@ -65,6 +65,9 @@ class Worker:
                 self._status = WorkerStatus.STOPPED
             elif self._status is WorkerStatus.RUNNING:
                 self._status = WorkerStatus.STOPPING
+        # 这对同步 Worker 没有副作用；对等待队列的 WorkerLoop 则能让它立刻
+        # 重新检查底层 Worker 的停止状态。
+        self._queue.wake_waiters()
 
     def _begin_run(self) -> None:
         """原子地进入运行态；供 Worker 子类复用。"""
@@ -96,12 +99,30 @@ class Worker:
         成功、失败还是刚刚被安排重试；重试只是把任务放回队列尾部，再次执行
         发生在后续的 :meth:`process_next` 或 :meth:`run` 循环中。
         """
+        def stopping() -> bool:
+            return self._should_stop() or (
+                stop_requested is not None and stop_requested()
+            )
+
+        # ``process_next`` 仍可作为独立的单次消费 API 使用；只有处于 STOPPING
+        # 状态的 Worker 才拒绝开始新的任务。这个预检也覆盖普通（非阻塞）出队，
+        # 使 WorkerLoop 的 stop 请求不会在下一次循环中取走一个待执行任务。
+        if stopping():
+            return None
+
         task = (
-            self._queue.dequeue_wait(stop_requested=stop_requested)
+            self._queue.dequeue_wait(stop_requested=stopping)
             if wait_for_task
             else self._queue.dequeue()
         )
         if task is None:
+            return None
+
+        # 对阻塞出队而言，任务可能刚好在等待被唤醒时遇到 stop；再检查一次，
+        # 避免此时启动新的执行。该分支在 WorkerLoop 中不会丢失任务：
+        # dequeue_wait 已在持有队列条件锁时完成停止检查。
+        if stopping():
+            self._queue.enqueue(task)
             return None
 
         self._executor.execute(task)
@@ -194,6 +215,9 @@ class WorkerLoop:
         with self._lifecycle_lock:
             if self._status is not WorkerStatus.CREATED:
                 raise RuntimeError(f"WorkerLoop 不能从 {self._status.value} 状态启动")
+            # 将底层 Worker 纳入 loop 的生命周期，保证 loop 请求停止时其状态也
+            # 会推进；直接调用 Worker.stop() 同样会令该 loop 结束。
+            self._worker._begin_run()
             self._status = WorkerStatus.RUNNING
             self._thread = Thread(target=self._run, name="workflow-worker-loop", daemon=True)
             self._thread.start()
@@ -206,7 +230,18 @@ class WorkerLoop:
             elif self._status is WorkerStatus.RUNNING:
                 self._status = WorkerStatus.STOPPING
             self._stop_requested.set()
+            self._worker.stop()
             self._worker._queue.wake_waiters()
+
+    def shutdown(self, timeout: float | None = None) -> bool:
+        """请求优雅停止并等待后台线程收尾。
+
+        已开始的任务会正常结束；尚未开始的任务留在队列中供新的 Worker
+        继续处理。返回 ``True`` 表示 loop 已在 ``timeout`` 内结束，``False``
+        表示仍在等待当前任务完成。传入 ``None`` 时无限等待。
+        """
+        self.stop()
+        return self.join(timeout)
 
     def join(self, timeout: float | None = None) -> bool:
         """等待 loop 线程结束，并返回它是否已经结束。"""
@@ -227,7 +262,7 @@ class WorkerLoop:
 
     def _run(self) -> None:
         try:
-            while self._is_running():
+            while self._is_running() and not self._worker._should_stop():
                 task = self._worker.process_next(
                     wait_for_task=True,
                     stop_requested=self._stop_requested.is_set,
@@ -240,6 +275,7 @@ class WorkerLoop:
         finally:
             with self._lifecycle_lock:
                 self._status = WorkerStatus.STOPPED
+            self._worker._finish_run()
             self._worker._queue.wake_waiters()
 
     def _is_running(self) -> bool:

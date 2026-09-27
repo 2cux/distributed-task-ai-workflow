@@ -108,14 +108,21 @@ loop = WorkerLoop(Worker(queue, Executor()))
 loop.start()
 queue.enqueue(Task(name="background-job", callable=run_job))
 # ...
-loop.stop()
-loop.join(timeout=5)
+if not loop.shutdown(timeout=5):
+    # 当前任务仍在协作式收尾；可继续等待或记录超时。
+    loop.join()
 ```
 
 `WorkerLoop.status` 使用与状态变更相同的生命周期锁保护，状态为
 `CREATED -> RUNNING -> STOPPING -> STOPPED`（空闲状态直接停止时为
 `CREATED -> STOPPED`）。一个 loop 实例只能启动一次；`start()` 的并发调用中
 恰有一个能完成该转换。
+
+`shutdown(timeout)` 等同于先请求 `stop()`、再 `join(timeout)`：它不会中断已经
+开始执行的任务，返回 `True` 表示该任务已完成、loop 已停止；返回 `False` 表示
+超时时任务仍在运行。停止请求发出后尚未开始的任务会保留在 `TaskQueue`，可以交给
+新的 Worker 继续处理。`WorkerLoop` 驱动的底层 `Worker` 使用同一生命周期，直接
+调用底层 `Worker.stop()` 也会唤醒并结束对应的空闲 loop。
 
 ## 任务生命周期
 
