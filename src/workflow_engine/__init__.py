@@ -6,6 +6,7 @@
 
 from .executor import Executor, execute
 from .concurrency import ConcurrentWorker
+from .lifecycle import WorkerStatus
 from .queue import TaskQueue
 from .retry import RetryPolicy, RetryPolicyError, should_retry
 from .scheduler import Scheduler
@@ -34,6 +35,7 @@ __all__ = [
     "TimeoutExecutor",
     "TimeoutPolicy",
     "Worker",
+    "WorkerStatus",
     "execute",
     "run_with_timeout",
     "should_retry",

@@ -14,7 +14,10 @@ Worker 就把任务重新放回队列尾部，并在下一次循环里再执行�
 
 from __future__ import annotations
 
+from threading import RLock
+
 from .executor import Executor
+from .lifecycle import WorkerStatus
 from .queue import TaskQueue
 from .retry import RetryPolicy
 from .task import Task, TaskStatus
@@ -39,6 +42,45 @@ class Worker:
         self._queue = queue
         self._executor = executor
         self._retry_policy = retry_policy
+        self._status = WorkerStatus.CREATED
+        self._lifecycle_lock = RLock()
+
+    @property
+    def status(self) -> WorkerStatus:
+        """返回当前 Worker 生命周期状态。"""
+        with self._lifecycle_lock:
+            return self._status
+
+    def stop(self) -> None:
+        """请求 Worker 停止。
+
+        对正在运行的 Worker，此方法不会中断已经开始执行的任务；该任务完成后
+        ``run()`` 将不再从队列取新任务，并把状态推进到 ``STOPPED``。重复调用
+        是安全的。尚未启动的 Worker 会直接进入 ``STOPPED``。
+        """
+        with self._lifecycle_lock:
+            if self._status is WorkerStatus.CREATED:
+                self._status = WorkerStatus.STOPPED
+            elif self._status is WorkerStatus.RUNNING:
+                self._status = WorkerStatus.STOPPING
+
+    def _begin_run(self) -> None:
+        """原子地进入运行态；供 Worker 子类复用。"""
+        with self._lifecycle_lock:
+            if self._status is not WorkerStatus.CREATED:
+                raise RuntimeError(f"Worker 不能从 {self._status.value} 状态启动")
+            self._status = WorkerStatus.RUNNING
+
+    def _should_stop(self) -> bool:
+        with self._lifecycle_lock:
+            return self._status is WorkerStatus.STOPPING
+
+    def _finish_run(self) -> None:
+        """完成运行并保证状态进入终态。"""
+        with self._lifecycle_lock:
+            if self._status is WorkerStatus.RUNNING:
+                self._status = WorkerStatus.STOPPING
+            self._status = WorkerStatus.STOPPED
 
     def process_next(self) -> Task | None:
         """同步处理队首任务，失败时按重试策略决定是否重新入队。
@@ -63,11 +105,14 @@ class Worker:
         被重新入队的失败任务会在同一轮 ``run()`` 中再次执行，因此返回的列表
         可能包含同一个任务对象的多次出现，按每次尝试的顺序排列。
         """
+        self._begin_run()
         processed: list[Task] = []
-        while (task := self.process_next()) is not None:
-            processed.append(task)
-
-        return processed
+        try:
+            while not self._should_stop() and (task := self.process_next()) is not None:
+                processed.append(task)
+            return processed
+        finally:
+            self._finish_run()
 
     def _handle_failure(self, task: Task) -> None:
         """在任务失败后决定重新入队还是让其停留在终态。"""

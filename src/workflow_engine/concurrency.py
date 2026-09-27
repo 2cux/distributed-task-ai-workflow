@@ -46,17 +46,21 @@ class ConcurrentWorker(Worker):
 
     def run(self) -> list[Task]:
         """并发处理队列，直到一次取批操作观察到队列为空。"""
+        self._begin_run()
         processed: list[Task] = []
-        with ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="workflow-worker") as pool:
-            while batch := self._drain_batch():
-                futures: list[Future[Task]] = [pool.submit(self._execute_one, task) for task in batch]
-                # 按提交顺序读取，同时确保本批全部结束才启动重试批次。
-                for future in futures:
-                    task = future.result()
-                    processed.append(task)
-                    if task.status is TaskStatus.FAILED:
-                        self._handle_failure(task)
-        return processed
+        try:
+            with ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="workflow-worker") as pool:
+                while not self._should_stop() and (batch := self._drain_batch()):
+                    futures: list[Future[Task]] = [pool.submit(self._execute_one, task) for task in batch]
+                    # 按提交顺序读取，同时确保本批全部结束才启动重试批次。
+                    for future in futures:
+                        task = future.result()
+                        processed.append(task)
+                        if task.status is TaskStatus.FAILED:
+                            self._handle_failure(task)
+            return processed
+        finally:
+            self._finish_run()
 
     def _drain_batch(self) -> list[Task]:
         batch: list[Task] = []
