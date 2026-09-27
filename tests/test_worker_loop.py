@@ -31,6 +31,43 @@ class WorkerLoopTests(unittest.TestCase):
         self.assertEqual(loop.processed_count, 1)
         self.assertIs(loop.status, WorkerStatus.STOPPED)
 
+    def test_idle_loop_is_woken_immediately_when_a_task_is_enqueued(self) -> None:
+        queue = TaskQueue()
+        completed = threading.Event()
+        loop = WorkerLoop(Worker(queue, Executor()), idle_wait=10)
+        loop.start()
+
+        queue.enqueue(Task(name="wake-on-enqueue", callable=completed.set))
+
+        self.assertTrue(completed.wait(timeout=0.5))
+        loop.stop()
+        self.assertTrue(loop.join(timeout=1))
+
+    def test_stop_wakes_a_loop_waiting_indefinitely_for_work(self) -> None:
+        loop = WorkerLoop(Worker(TaskQueue(), Executor()), idle_wait=10)
+        loop.start()
+
+        started_at = time.monotonic()
+        loop.stop()
+
+        self.assertTrue(loop.join(timeout=0.5))
+        self.assertLess(time.monotonic() - started_at, 0.5)
+        self.assertIs(loop.status, WorkerStatus.STOPPED)
+
+    def test_task_enqueued_after_stop_remains_pending(self) -> None:
+        queue = TaskQueue()
+        completed = threading.Event()
+        loop = WorkerLoop(Worker(queue, Executor()), idle_wait=10)
+        loop.start()
+        loop.stop()
+
+        task = Task(name="submitted-after-stop", callable=completed.set)
+        queue.enqueue(task)
+
+        self.assertTrue(loop.join(timeout=1))
+        self.assertFalse(completed.is_set())
+        self.assertIn(task, queue)
+
     def test_stop_wakes_an_idle_loop_without_waiting_for_poll_timeout(self) -> None:
         loop = WorkerLoop(Worker(TaskQueue(), Executor()), idle_wait=5)
         loop.start()

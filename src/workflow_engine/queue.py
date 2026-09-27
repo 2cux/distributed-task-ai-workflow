@@ -16,9 +16,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import heapq
 from itertools import count
 import threading
+import time
 
 from .task import Task, TaskStatus
 
@@ -35,6 +37,7 @@ class TaskQueue:
         self._sequence = count()
         self._queued_ids: set[str] = set()
         self._lock = threading.RLock()
+        self._tasks_ready = threading.Condition(self._lock)
 
     def enqueue(self, task: Task) -> None:
         """接收并保存一个待执行任务。
@@ -46,7 +49,7 @@ class TaskQueue:
             raise TypeError("task 必须是 Task 实例")
         # 统一采用“队列锁 -> 任务锁”的顺序，令状态检查和去重检查成为一个
         # 原子操作，多个提交线程不能把同一任务插入两次。
-        with self._lock:
+        with self._tasks_ready:
             with task._lock:
                 if task.status not in QUEUEABLE_STATUSES:
                     raise ValueError(f"只有 PENDING 或 RETRYING 状态的任务可以入队，当前状态为 {task.status.value}")
@@ -57,16 +60,63 @@ class TaskQueue:
 
                 heapq.heappush(self._tasks, (-task.priority, next(self._sequence), task))
                 self._queued_ids.add(task.id)
+                self._tasks_ready.notify()
 
     def dequeue(self) -> Task | None:
         """取出最高优先级任务；同优先级时取出最早进入队列的任务。"""
         with self._lock:
-            if not self._tasks:
-                return None
+            return self._dequeue_locked()
 
-            _, _, task = heapq.heappop(self._tasks)
-            self._queued_ids.discard(task.id)
-            return task
+    def dequeue_wait(
+        self,
+        timeout: float | None = None,
+        *,
+        stop_requested: Callable[[], bool] | None = None,
+    ) -> Task | None:
+        """等待并取出一个任务；超时前没有任务时返回 ``None``。
+
+        ``None`` 表示无限等待。入队会立即唤醒等待者，因此常驻 worker 无需
+        通过定时轮询发现新任务。
+        """
+        if timeout is not None:
+            if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+                raise TypeError("timeout 必须是非负秒数或 None")
+            if timeout < 0:
+                raise ValueError("timeout 必须是非负秒数或 None")
+        if stop_requested is not None and not callable(stop_requested):
+            raise TypeError("stop_requested 必须是可调用对象或 None")
+
+        with self._tasks_ready:
+            if timeout is None:
+                while not self._tasks:
+                    if stop_requested is not None and stop_requested():
+                        return None
+                    self._tasks_ready.wait()
+            else:
+                deadline = time.monotonic() + float(timeout)
+                while not self._tasks:
+                    if stop_requested is not None and stop_requested():
+                        return None
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return None
+                    self._tasks_ready.wait(remaining)
+            if stop_requested is not None and stop_requested():
+                return None
+            return self._dequeue_locked()
+
+    def wake_waiters(self) -> None:
+        """唤醒等待消费者，以便其重新检查外部停止状态。"""
+        with self._tasks_ready:
+            self._tasks_ready.notify_all()
+
+    def _dequeue_locked(self) -> Task | None:
+        if not self._tasks:
+            return None
+
+        _, _, task = heapq.heappop(self._tasks)
+        self._queued_ids.discard(task.id)
+        return task
 
     def is_empty(self) -> bool:
         """返回队列是否没有待处理任务。"""

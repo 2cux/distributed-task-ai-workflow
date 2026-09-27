@@ -14,6 +14,7 @@ Worker 就把任务重新放回队列尾部，并在下一次循环里再执行�
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from threading import Event, RLock, Thread, current_thread
 from typing import Final
 
@@ -83,14 +84,23 @@ class Worker:
                 self._status = WorkerStatus.STOPPING
             self._status = WorkerStatus.STOPPED
 
-    def process_next(self) -> Task | None:
+    def process_next(
+        self,
+        *,
+        wait_for_task: bool = False,
+        stop_requested: Callable[[], bool] | None = None,
+    ) -> Task | None:
         """同步处理队首任务，失败时按重试策略决定是否重新入队。
 
         队列为空时返回 ``None``。返回值始终是被处理的那个任务对象，无论它
         成功、失败还是刚刚被安排重试；重试只是把任务放回队列尾部，再次执行
         发生在后续的 :meth:`process_next` 或 :meth:`run` 循环中。
         """
-        task = self._queue.dequeue()
+        task = (
+            self._queue.dequeue_wait(stop_requested=stop_requested)
+            if wait_for_task
+            else self._queue.dequeue()
+        )
         if task is None:
             return None
 
@@ -134,8 +144,8 @@ class WorkerLoop:
 
     这个类是 Worker 的运行外壳，而非 TaskEngine 的另一种入口：它唯一依赖的
     行为是 ``Worker.process_next()``。因此任务提交、引擎装配和业务调度仍在
-    WorkerLoop 之外。队列暂时为空时，loop 会等待 ``idle_wait`` 后再检查；调用
-    :meth:`stop` 会立即唤醒该等待。
+    WorkerLoop 之外。队列暂时为空时，loop 会在队列上阻塞等待；任务入队或调用
+    :meth:`stop` 都会立即唤醒该等待。``idle_wait`` 保留为兼容旧调用方的参数。
 
     每个实例只能启动一次。停止是协作式的：已经由底层 Worker 开始执行的任务
     不会被中断，loop 随后不会再开始下一轮处理。
@@ -158,7 +168,7 @@ class WorkerLoop:
         self._lifecycle_lock = RLock()
         self._status = WorkerStatus.CREATED
         self._thread: Thread | None = None
-        self._wake = Event()
+        self._stop_requested = Event()
         self._processed_count = 0
 
     @property
@@ -195,7 +205,8 @@ class WorkerLoop:
                 self._status = WorkerStatus.STOPPED
             elif self._status is WorkerStatus.RUNNING:
                 self._status = WorkerStatus.STOPPING
-            self._wake.set()
+            self._stop_requested.set()
+            self._worker._queue.wake_waiters()
 
     def join(self, timeout: float | None = None) -> bool:
         """等待 loop 线程结束，并返回它是否已经结束。"""
@@ -217,18 +228,19 @@ class WorkerLoop:
     def _run(self) -> None:
         try:
             while self._is_running():
-                task = self._worker.process_next()
+                task = self._worker.process_next(
+                    wait_for_task=True,
+                    stop_requested=self._stop_requested.is_set,
+                )
                 if task is not None:
                     with self._lifecycle_lock:
                         self._processed_count += 1
                     continue
 
-                self._wake.wait(self._idle_wait)
-                self._wake.clear()
         finally:
             with self._lifecycle_lock:
                 self._status = WorkerStatus.STOPPED
-                self._wake.set()
+            self._worker._queue.wake_waiters()
 
     def _is_running(self) -> bool:
         with self._lifecycle_lock:

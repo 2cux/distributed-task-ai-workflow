@@ -98,8 +98,9 @@ completed = scheduler.start()
 
 `WorkerLoop` 为既有 `Worker` 提供一个常驻的后台线程。它只调用
 `Worker.process_next()`，不导入或了解 `TaskEngine`；因此任务提交和引擎装配
-仍可由调用方自由组合。空队列时 loop 按 `idle_wait` 轮询，`stop()` 会立即唤醒
-等待。停止是协作式的：已经开始的任务会执行完毕，但不会开始下一项任务。
+仍可由调用方自由组合。空队列时 loop 阻塞等待任务；`enqueue()` 和 `stop()`
+都会立即唤醒等待，不再依赖 `idle_wait` 轮询。停止是协作式的：已经开始的任务会
+执行完毕，但不会开始下一项任务。
 
 ```python
 queue = TaskQueue()
