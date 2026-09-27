@@ -42,6 +42,7 @@
 | Executor | 同步执行单个任务并更新其生命周期 | 已实现 |
 | TaskQueue | 进程内稳定优先级待执行任务队列 | 已实现 |
 | Worker | 从队列取出任务并同步交给执行器 | 已实现 |
+| WorkerLoop | 在专用线程中持续驱动 Worker，直至收到停止请求 | 已实现 |
 | Scheduler | 接收任务、入队并启动 Worker 执行当前队列 | 已实现 |
 | RetryPolicy | 判断失败任务是否还有剩余重试次数 | 已实现 |
 | TimeoutPolicy | 给出"一次执行"的超时上限，任务级优先、策略默认值兜底 | 已实现 |
@@ -92,6 +93,28 @@ completed = scheduler.start()
 同时执行两次，而不同任务不会彼此串行化。`run()` 的返回列表按提交到线程池的顺序
 排列，任务实际完成顺序不作保证。失败重试在一批任务均结束后进入下一批，避免同一
 任务的两个 attempt 重叠。
+
+## 后台 Worker Loop
+
+`WorkerLoop` 为既有 `Worker` 提供一个常驻的后台线程。它只调用
+`Worker.process_next()`，不导入或了解 `TaskEngine`；因此任务提交和引擎装配
+仍可由调用方自由组合。空队列时 loop 按 `idle_wait` 轮询，`stop()` 会立即唤醒
+等待。停止是协作式的：已经开始的任务会执行完毕，但不会开始下一项任务。
+
+```python
+queue = TaskQueue()
+loop = WorkerLoop(Worker(queue, Executor()))
+loop.start()
+queue.enqueue(Task(name="background-job", callable=run_job))
+# ...
+loop.stop()
+loop.join(timeout=5)
+```
+
+`WorkerLoop.status` 使用与状态变更相同的生命周期锁保护，状态为
+`CREATED -> RUNNING -> STOPPING -> STOPPED`（空闲状态直接停止时为
+`CREATED -> STOPPED`）。一个 loop 实例只能启动一次；`start()` 的并发调用中
+恰有一个能完成该转换。
 
 ## 任务生命周期
 

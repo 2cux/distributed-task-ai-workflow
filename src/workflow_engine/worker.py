@@ -14,7 +14,8 @@ Worker 就把任务重新放回队列尾部，并在下一次循环里再执行�
 
 from __future__ import annotations
 
-from threading import RLock
+from threading import Event, RLock, Thread, current_thread
+from typing import Final
 
 from .executor import Executor
 from .lifecycle import WorkerStatus
@@ -126,3 +127,109 @@ class Worker:
         # 重新入队由队列自身的重复检查拦截，不会静默插入两份。
         self._retry_policy.begin_retry(task)
         self._queue.enqueue(task)
+
+
+class WorkerLoop:
+    """在专用后台线程中持续驱动一个 :class:`Worker`。
+
+    这个类是 Worker 的运行外壳，而非 TaskEngine 的另一种入口：它唯一依赖的
+    行为是 ``Worker.process_next()``。因此任务提交、引擎装配和业务调度仍在
+    WorkerLoop 之外。队列暂时为空时，loop 会等待 ``idle_wait`` 后再检查；调用
+    :meth:`stop` 会立即唤醒该等待。
+
+    每个实例只能启动一次。停止是协作式的：已经由底层 Worker 开始执行的任务
+    不会被中断，loop 随后不会再开始下一轮处理。
+    """
+
+    _DEFAULT_IDLE_WAIT: Final[float] = 0.01
+
+    def __init__(self, worker: Worker, *, idle_wait: float = _DEFAULT_IDLE_WAIT) -> None:
+        if not isinstance(worker, Worker):
+            raise TypeError("worker 必须是 Worker 实例")
+        if isinstance(idle_wait, bool) or not isinstance(idle_wait, (int, float)):
+            raise TypeError("idle_wait 必须是非负秒数")
+        if idle_wait < 0:
+            raise ValueError("idle_wait 必须是非负秒数")
+
+        self._worker = worker
+        self._idle_wait = float(idle_wait)
+        # 生命周期状态与 thread 的创建/读取必须在同一把锁内完成，避免两个
+        # 调用方同时 start，或在目标线程结束时观察到过期状态。
+        self._lifecycle_lock = RLock()
+        self._status = WorkerStatus.CREATED
+        self._thread: Thread | None = None
+        self._wake = Event()
+        self._processed_count = 0
+
+    @property
+    def status(self) -> WorkerStatus:
+        """返回 loop 的线程安全生命周期快照。"""
+        with self._lifecycle_lock:
+            return self._status
+
+    @property
+    def processed_count(self) -> int:
+        """返回 loop 已完成处理的 attempt 数量。"""
+        with self._lifecycle_lock:
+            return self._processed_count
+
+    @property
+    def is_alive(self) -> bool:
+        """返回后台线程是否仍存活。"""
+        with self._lifecycle_lock:
+            return self._thread is not None and self._thread.is_alive()
+
+    def start(self) -> None:
+        """创建并启动后台 loop 线程。"""
+        with self._lifecycle_lock:
+            if self._status is not WorkerStatus.CREATED:
+                raise RuntimeError(f"WorkerLoop 不能从 {self._status.value} 状态启动")
+            self._status = WorkerStatus.RUNNING
+            self._thread = Thread(target=self._run, name="workflow-worker-loop", daemon=True)
+            self._thread.start()
+
+    def stop(self) -> None:
+        """请求 loop 停止；重复调用安全，且不会中断正在执行的任务。"""
+        with self._lifecycle_lock:
+            if self._status is WorkerStatus.CREATED:
+                self._status = WorkerStatus.STOPPED
+            elif self._status is WorkerStatus.RUNNING:
+                self._status = WorkerStatus.STOPPING
+            self._wake.set()
+
+    def join(self, timeout: float | None = None) -> bool:
+        """等待 loop 线程结束，并返回它是否已经结束。"""
+        if timeout is not None:
+            if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+                raise TypeError("timeout 必须是非负秒数或 None")
+            if timeout < 0:
+                raise ValueError("timeout 必须是非负秒数或 None")
+
+        with self._lifecycle_lock:
+            thread = self._thread
+        if thread is None:
+            return self.status is WorkerStatus.STOPPED
+        if thread is current_thread():
+            raise RuntimeError("WorkerLoop 线程不能等待自身")
+        thread.join(timeout)
+        return not thread.is_alive()
+
+    def _run(self) -> None:
+        try:
+            while self._is_running():
+                task = self._worker.process_next()
+                if task is not None:
+                    with self._lifecycle_lock:
+                        self._processed_count += 1
+                    continue
+
+                self._wake.wait(self._idle_wait)
+                self._wake.clear()
+        finally:
+            with self._lifecycle_lock:
+                self._status = WorkerStatus.STOPPED
+                self._wake.set()
+
+    def _is_running(self) -> bool:
+        with self._lifecycle_lock:
+            return self._status is WorkerStatus.RUNNING

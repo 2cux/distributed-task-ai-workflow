@@ -19,7 +19,7 @@ from .timeout import (
     run_with_timeout,
     timeout_for,
 )
-from .worker import Worker
+from .worker import Worker, WorkerLoop
 
 __all__ = [
     "Executor",
@@ -35,6 +35,7 @@ __all__ = [
     "TimeoutExecutor",
     "TimeoutPolicy",
     "Worker",
+    "WorkerLoop",
     "WorkerStatus",
     "execute",
     "run_with_timeout",
