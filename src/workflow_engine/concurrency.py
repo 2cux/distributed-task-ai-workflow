@@ -1,13 +1,13 @@
 """进程内线程池并发执行原语。
 
 本模块刻意只提供固定大小线程池：不含协程、跨进程 Worker、动态扩缩容或
-后台常驻调度。``ConcurrentWorker.run`` 在调用期间取尽当前队列中的任务，
-每一批最多并发 ``max_workers`` 项，并等待所有任务（及其重试）结束后返回。
+后台常驻调度。``ConcurrentWorker.run`` 只按空闲槽位取任务，最多保留
+``max_workers`` 个在途尝试；任一尝试完成后立即补位。
 """
 
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 
 from .executor import Executor
 from .queue import TaskQueue
@@ -20,8 +20,8 @@ class ConcurrentWorker(Worker):
     """用固定大小线程池消费 :class:`TaskQueue` 的 Worker。
 
     返回值按提交给线程池的顺序排列，而非完成顺序；因此任务函数本身的完成
-    顺序没有契约。失败后的重试在当前批次全部结束后重新入队，并在下一批执行，
-    避免同一 Task 的两次尝试重叠。
+    顺序没有契约。失败后的重试在该尝试结束后立即重新入队，与其他待执行任务
+    一起按优先级及同级 FIFO 竞争空闲槽位。
     """
 
     def __init__(
@@ -45,34 +45,50 @@ class ConcurrentWorker(Worker):
         return self._max_workers
 
     def run(self) -> list[Task]:
-        """并发处理队列，直到一次取批操作观察到队列为空。"""
+        """按空闲槽位消费，直到队列与在途尝试均为空。
+
+        stop() 后停止取新任务，等待已提交的尝试收尾；这些尝试产生的重试
+        仍按策略入队，留给新的 Worker。返回列表保留每次尝试的提交顺序。
+        """
         self._begin_run()
         processed: list[Task] = []
         try:
             with ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix="workflow-worker") as pool:
-                while not self._should_stop() and (batch := self._drain_batch()):
-                    futures: list[Future[Task]] = [pool.submit(self._execute_one, task) for task in batch]
-                    # 按提交顺序读取，同时确保本批全部结束才启动重试批次。
-                    for future in futures:
+                in_flight: dict[Future[Task], Task] = {}
+                while True:
+                    while len(in_flight) < self._max_workers:
+                        # 取任务与提交共用 stop() 的生命周期锁：停止请求生效后
+                        # 不会再移走排队任务。锁不覆盖任务执行或等待完成。
+                        with self._lifecycle_lock:
+                            if self._should_stop():
+                                break
+                            task = self._queue.dequeue()
+                            if task is None:
+                                break
+                            try:
+                                future = pool.submit(self._execute_one, task)
+                            except BaseException:
+                                self._queue.enqueue(task)
+                                raise
+                            in_flight[future] = task
+                            processed.append(task)
+
+                    if not in_flight:
+                        break
+
+                    completed, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                    # 先回收完成的尝试并安排重试，再从优先级队列补位。
+                    # 按提交顺序处理同时观察到的完成项，避免 set 的随机顺序。
+                    for future in tuple(in_flight):
+                        if future not in completed:
+                            continue
                         task = future.result()
-                        processed.append(task)
+                        del in_flight[future]
                         if task.status is TaskStatus.FAILED:
                             self._handle_failure(task)
             return processed
         finally:
             self._finish_run()
 
-    def _drain_batch(self) -> list[Task]:
-        batch: list[Task] = []
-        while (task := self._queue.dequeue()) is not None:
-            batch.append(task)
-        return batch
-
     def _execute_one(self, task: Task) -> Task:
         return self._executor.execute(task)
-
-    def _handle_failure(self, task: Task) -> None:
-        if self._retry_policy is None or not self._retry_policy.should_retry(task):
-            return
-        self._retry_policy.begin_retry(task)
-        self._queue.enqueue(task)

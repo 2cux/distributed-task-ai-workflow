@@ -75,8 +75,9 @@ completed_attempts = engine.start()
 ## 基础并发执行
 
 `ConcurrentWorker` 是当前阶段唯一的并发模型：它在一次 `run()` 调用中创建固定
-大小的进程内线程池，最多同时运行 `max_workers` 个不同任务；调用会处理已取出的
-任务及其重试，直到一次取批操作观察到队列为空后返回。不包含协程、分布式 Worker、
+大小的进程内线程池，最多保留 `max_workers` 个已提交、尚未回收的任务尝试。
+有几个空闲槽位就从队列取几个任务，任一尝试完成后立即回收并补位；其余任务留在
+`TaskQueue` 中，避免在线程池内部积压。队列与在途尝试均为空时返回。不包含协程、分布式 Worker、
 后台常驻服务或动态扩缩容。
 
 ```python
@@ -91,8 +92,18 @@ completed = scheduler.start()
 线程安全边界：`TaskQueue` 的入队、出队、去重与观察操作均受队列锁保护；每个
 `Task` 有独立生命周期锁，`Executor` 在执行期间持有该锁，因此同一个任务不会被
 同时执行两次，而不同任务不会彼此串行化。`run()` 的返回列表按提交到线程池的顺序
-排列，任务实际完成顺序不作保证。失败重试在一批任务均结束后进入下一批，避免同一
-任务的两个 attempt 重叠。
+排列，任务实际开始与完成顺序不作保证。每次补位都重新选择队列中最高优先级任务，
+相同优先级保持 FIFO，因此运行期间新提交的高优先级任务也能参与下一次槽位分配。
+失败尝试完成后立即按策略重新入队，无需等待其他运行任务结束；重试保留原优先级，
+同优先级时排在队尾，同一任务的两个执行器 attempt 不会重叠。软超时的业务代码
+仍有下文“超时”章节所述的边界。
+
+`ConcurrentWorker.stop()` 是非阻塞的优雅停止请求：不再取新任务，`run()` 等待
+已提交的尝试全部结束后进入 `STOPPED` 并返回。未取出的任务和收尾期间产生的重试
+保留在队列中，可由新的 Worker 接续处理。取任务与提交使用生命周期锁，与停止请求
+保持互斥。该有界消费行为适用于 `ConcurrentWorker.run()` 及使用它的
+`Scheduler.start()` / `TaskEngine.start()`；`WorkerLoop` 仍通过 `process_next()`
+逐个同步处理任务。
 
 ## 后台 Worker Loop
 
@@ -151,7 +162,7 @@ PENDING ──> RUNNING ──> SUCCESS
 - 每个队列中同一 task id 最多有一个待执行条目，且队列只含 `PENDING` 或
   `RETRYING` 任务，避免同一 attempt 重复排队。
 - 超时与其他失败走同一条失败 -> 重试链路；一次超时 attempt 最多消耗并产生
-  一次重试。`Worker.run()` / `ConcurrentWorker.run()` 正常返回时，队列已清空，
+  一次重试。未请求停止时，`Worker.run()` / `ConcurrentWorker.run()` 返回时队列已清空，
   已处理任务均处于 `SUCCESS` 或 `FAILED`，不会遗留 `RUNNING`。
 
 ## 重试
@@ -255,4 +266,19 @@ pip install -e .
 
 ```bash
 PYTHONPATH=src python -c "from workflow_engine import Task"
+```
+
+PowerShell 下运行全部测试：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python -m pytest tests -q
+```
+
+`tests/test_bounded_consumption.py` 提供四个独立测试类，分别验证有界取任务与立即
+补位、优先级与 FIFO、失败重试、优雅关闭。可单独运行：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python -m unittest discover -s tests -p test_bounded_consumption.py -v
 ```
