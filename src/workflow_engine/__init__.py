@@ -20,8 +20,14 @@ from .timeout import (
     timeout_for,
 )
 from .worker import Worker, WorkerLoop
+from .persistence import SQLiteTaskStore, PersistenceError, IdempotencyConflict, UncertainExecutionError, StoredTaskError
 
 __all__ = [
+    "SQLiteTaskStore",
+    "PersistenceError",
+    "IdempotencyConflict",
+    "UncertainExecutionError",
+    "StoredTaskError",
     "Executor",
     "ConcurrentWorker",
     "RetryPolicy",

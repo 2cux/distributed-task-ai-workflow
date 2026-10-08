@@ -83,6 +83,9 @@ class ConcurrentWorker(Worker):
                         if future not in completed:
                             continue
                         task = future.result()
+                        if (task is in_flight[future] and task.status is TaskStatus.RETRYING
+                                and not self._queue.contains(task)):
+                            self._queue.enqueue(task)
                         del in_flight[future]
                         if task.status is TaskStatus.FAILED:
                             self._handle_failure(task)

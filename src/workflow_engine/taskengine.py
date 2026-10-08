@@ -10,6 +10,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Callable, Any
+from threading import RLock
 
 from .concurrency import ConcurrentWorker
 from .queue import TaskQueue
@@ -18,6 +21,8 @@ from .scheduler import Scheduler
 from .task import Task
 from .timeout import TimeoutExecutor, TimeoutPolicy
 from .worker import Worker
+from .persistence import SQLiteTaskStore, PersistentExecutor
+from .task import TaskStatus
 
 
 class TaskEngine:
@@ -35,7 +40,12 @@ class TaskEngine:
         retry_policy: RetryPolicy | None = None,
         timeout_policy: TimeoutPolicy | None = None,
         max_workers: int = 1,
+        database_path: str | Path | None = None,
+        task_registry: dict[str, Callable[..., Any]] | None = None,
+        recover_interrupted: bool = False,
     ) -> None:
+        if not isinstance(recover_interrupted, bool):
+            raise TypeError("recover_interrupted 必须是布尔值")
         if retry_policy is not None and not isinstance(retry_policy, RetryPolicy):
             raise TypeError("retry_policy 必须是 RetryPolicy 实例或 None")
         if timeout_policy is not None and not isinstance(timeout_policy, TimeoutPolicy):
@@ -46,7 +56,24 @@ class TaskEngine:
             raise ValueError("max_workers 必须是正整数")
 
         queue = TaskQueue()
-        executor = TimeoutExecutor(timeout_policy)
+        self._store = None
+        self._submission_lock = RLock()
+        self._retry_policy = retry_policy
+        if database_path is not None:
+            if task_registry is None:
+                raise ValueError("持久化模式需要 task_registry")
+            self._store = SQLiteTaskStore(database_path, task_registry)
+            if recover_interrupted:
+                self._store.recover_interrupted()
+            for task in self._store.pending():
+                queue.enqueue(task)
+            executor = PersistentExecutor(self._store, retry_policy, timeout_policy)
+            # PersistentExecutor commits the retry decision with the outcome.
+            retry_policy = None
+        else:
+            if task_registry is not None or recover_interrupted:
+                raise ValueError("task_registry/recover_interrupted 需要 database_path")
+            executor = TimeoutExecutor(timeout_policy)
         if max_workers == 1:
             worker: Worker = Worker(queue, executor, retry_policy)
         else:
@@ -65,8 +92,21 @@ class TaskEngine:
 
         该方法不执行任务；调用 :meth:`start` 才会进入既有 Worker 流程。
         """
-        self._scheduler.submit(task)
-        return task
+        if self._store is None:
+            self._scheduler.submit(task)
+            return task
+        with self._submission_lock:
+            limit = self._retry_policy.limit_for(task) if self._retry_policy is not None else 0
+            stored = self._store.submit(task, limit)
+            if stored.status in (TaskStatus.PENDING, TaskStatus.RETRYING) and not self._queue.contains(stored):
+                self._scheduler.submit(stored)
+            return stored
+
+    def get_task(self, task_id: str) -> Task | None:
+        """读取已持久化任务的当前状态、结果和计数。"""
+        if self._store is None:
+            raise RuntimeError("get_task 需要持久化模式")
+        return self._store.get(task_id)
 
     def submit_many(self, tasks: Iterable[Task]) -> list[Task]:
         """按迭代顺序提交多个任务，返回相同的任务对象列表。"""

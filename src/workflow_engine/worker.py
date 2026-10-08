@@ -125,7 +125,10 @@ class Worker:
             self._queue.enqueue(task)
             return None
 
-        self._executor.execute(task)
+        executed = self._executor.execute(task)
+        if executed is task and task.status is TaskStatus.RETRYING and not self._queue.contains(task):
+            self._queue.enqueue(task)
+        task = executed
         if task.status is TaskStatus.FAILED:
             self._handle_failure(task)
 

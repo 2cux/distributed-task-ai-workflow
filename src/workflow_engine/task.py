@@ -93,6 +93,8 @@ class Task:
     # timeout 是"这份工作每次执行允许多久"的描述，参与比较；它不随重试计数
     # 递减，因此不会变成任务的总体时间预算。
     timeout: float | None = None
+    # 业务保证以稳定的 task.id（放入 args/kwargs）去重后，才可开启崩溃重放。
+    idempotent: bool = False
     # 只能由 Executor 在持有 _lock 时递增。它不是用户输入，也不是重试预算：
     # 前者记录实际开始的次数，后者记录已安排的重试次数。
     _attempt_count: int = field(default=0, init=False, repr=False, compare=False)
@@ -125,6 +127,8 @@ class Task:
         super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.idempotent, bool):
+            raise TypeError("idempotent 必须是布尔值")
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("id 必须为非空字符串")
         if not isinstance(self.name, str) or not self.name:

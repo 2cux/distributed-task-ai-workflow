@@ -72,6 +72,84 @@ completed_attempts = engine.start()
 `max_workers=1` 使用同步 `Worker`，大于 1 时使用 `ConcurrentWorker`。即使没有
 设置默认超时策略，任务自身的 `timeout` 仍会通过 `TimeoutExecutor` 生效。
 
+## 任务持久化与故障恢复
+
+通过 `database_path` 开启 SQLite 持久化；省略该参数保留原有内存模式。
+无需安装额外依赖。数据库目录须预先存在，并位于持久磁盘上；数据库和其
+`-wal` / `-shm` 文件应放在同一目录，运行期间不要单独复制数据库文件作备份。
+使用 WAL 和 `synchronous=FULL`，每次提交、领取、完成都在短事务中提交。
+任务定义、状态、JSON 结果、异常摘要、执行次数和重试次数均保存到磁盘。
+
+```python
+from workflow_engine import RetryPolicy, Task, TaskEngine
+
+engine = TaskEngine(
+    database_path="tasks.sqlite3",
+    task_registry={"absolute-value-v1": abs},
+    retry_policy=RetryPolicy(max_retries=2),
+    max_workers=4,
+    # 服务器断电重启、确认所有旧 Worker 已停止后才开启：
+    recover_interrupted=True,
+)
+task = engine.submit(Task(
+    name="absolute-value", callable=abs, args=(-42,),
+    id="request-2026-001",  # 同一业务请求始终使用同一个 ID
+    idempotent=True,        # abs 可安全重复调用；有副作用的函数必须自行去重
+))
+engine.start()
+saved = engine.get_task(task.id)
+print(saved.status, saved.result, saved.attempt_count)
+```
+
+`task_registry` 将稳定名称映射到函数；重启后提供相同映射，不序列化函数、不使用
+pickle、不从数据库动态导入代码。注册名称应随业务版本区分，不能更改已有名称
+的业务语义。参数和结果必须是 JSON 类型，`args` 的最外层元组会转成 JSON 数组；
+嵌套元组、任意对象、非字符串字典键和 NaN/Infinity 会被拒绝。异常恢复为
+`StoredTaskError` 摘要，结果不确定异常恢复为 `UncertainExecutionError`。
+无法序列化的返回值保存为失败并停止重试，避免重复调用已完成的业务。
+
+幂等规则：
+
+- `Task.id` 是数据库唯一键。相同 ID、相同定义的提交返回已存任务；若定义不同，
+  抛出 `IdempotencyConflict`。终态任务不会再次进入执行队列。未指定 ID 时每次
+  新建 Task 都会生成新 ID，所以请求重发必须复用业务键。
+- 业务调用前，数据库原子领取将待执行状态改为 `RUNNING` 并记录执行次数。
+  共享同一数据库的多个引擎中只有一个能领取成功；完成写入校验领取令牌和执行
+  次数，过期执行器不能覆盖恢复后的结果。已提交定义是执行依据，修改内存对象
+  不会改变持久化的业务调用。
+- 成功结果或失败后的重试决策一次提交。即使在提交 `RETRYING` 后、内存入队前
+  断电，重启仍会恢复该次重试。提交时保存有效重试预算，重启不会因默认策略
+  改变而重置预算。未配置 RetryPolicy 时不安排重试。
+
+恢复规则：
+
+- 每次新建持久化引擎都会按优先级及同级 FIFO 恢复 `PENDING` / `RETRYING`。
+  `SUCCESS` / `FAILED` 保留供查询，不会自动重新执行。
+- 默认不接管 `RUNNING`，避免把另一个仍在运行的引擎误判为故障。确认共享该
+  数据库的所有旧 Worker 已停止后，可使用 `recover_interrupted=True`，或独立
+  调用 `SQLiteTaskStore.recover_interrupted()` 后创建引擎。
+- 中断的非幂等任务转为 `FAILED`，错误为 `UncertainExecutionError`，需核对实际
+  业务结果；声明 `idempotent=True` 且有剩余重试预算的任务进入 `RETRYING`，
+  消耗一次预算。重复恢复不会重复消耗预算。
+- `idempotent=True` 是业务承诺，并不会自动让任意副作用变成幂等。涉及支付、
+  写入或外部 API 时，应将稳定业务键传入 `args` / `kwargs`，在业务数据库用唯一
+  约束和事务去重，或传给支持幂等键的外部接口。执行结果提交前断电可能导致
+  函数重放；平台不能保证任意外部操作恰好执行一次。
+- 持久化模式的软超时会等待旧调用真正结束后才提交失败或重试，防止业务调用
+  重叠；因此函数不退出时 `start()` 也不会立即返回。需要硬超时应采用进程隔离。
+
+当前实现适用于共享本机 SQLite 文件的进程；多主机调度需后续增加服务器数据库
+和明确的 Worker 存活协调机制。
+
+四个独立测试类覆盖磁盘读写、重复提交与跨引擎竞争、子进程强制退出恢复，以及
+结果提交失败和软超时边界：`TaskPersistenceTests`、`PersistentIdempotencyTests`、
+`CrashRecoveryTests`、`PersistentFailureBoundaryTests`。
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m unittest discover -s tests -v
+```
+
 ## 基础并发执行
 
 `ConcurrentWorker` 是当前阶段唯一的并发模型：它在一次 `run()` 调用中创建固定
