@@ -49,12 +49,15 @@ PENDING 到 FAILED 用于提交阶段就已判定失败的场景，例如可调�
 
 from __future__ import annotations
 
+import json
 import math
 import threading
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
+
+from .events import TaskEvent, TaskEventType, snapshot_details, utc_now
 
 
 class TaskStatus(str, Enum):
@@ -101,8 +104,17 @@ class Task:
     # 不参与序列化、比较或公开构造参数；执行器与策略用它保证同一任务的
     # 生命周期写入是原子的。不同 Task 各自持锁，故不会降低任务间并发度。
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
+    _events: list[TaskEvent] = field(default_factory=list, init=False, repr=False, compare=False)
 
     def __setattr__(self, name: str, value: Any) -> None:
+        lock = self.__dict__.get("_lock") if name == "status" else None
+        if lock is None:
+            self._assign_field(name, value)
+        else:
+            with lock:
+                self._assign_field(name, value)
+
+    def _assign_field(self, name: str, value: Any) -> None:
         """维护状态字段的类型与单向生命周期约束。
 
         ``status`` 是公开的观察字段，但不能被写成任意值或绕过合法转移。
@@ -125,6 +137,15 @@ class Task:
                 if value not in allowed[previous]:
                     raise ValueError(f"不允许任务状态从 {previous.value} 转为 {value.value}")
         super().__setattr__(name, value)
+        if (name == "status" and previous is not None and previous != value
+                and "_events" in self.__dict__ and not getattr(self, "_persisted", False)):
+            event_type = {
+                TaskStatus.RUNNING: TaskEventType.STARTED,
+                TaskStatus.SUCCESS: TaskEventType.SUCCEEDED,
+                TaskStatus.FAILED: TaskEventType.FAILED,
+                TaskStatus.RETRYING: TaskEventType.RETRY_SCHEDULED,
+            }[value]
+            self._record_event(event_type, previous)
 
     def __post_init__(self) -> None:
         if not isinstance(self.idempotent, bool):
@@ -171,6 +192,26 @@ class Task:
         if self.status is TaskStatus.RETRYING and self.retry_count < 1:
             raise ValueError("RETRYING 状态要求 retry_count 至少为 1")
 
+        self._record_event(TaskEventType.CREATED if self.status is TaskStatus.PENDING
+                           else TaskEventType.RESTORED, details={"name": self.name})
+
+    @property
+    def events(self) -> tuple[TaskEvent, ...]:
+        """按任务内序号返回不可修改的历史快照；不会随结果覆盖而丢失。"""
+        with self._lock:
+            return tuple(self._events)
+
+    def _record_event(self, event_type: TaskEventType,
+                      previous_status: TaskStatus | None = None,
+                      details: dict[str, Any] | None = None) -> TaskEvent:
+        with self._lock:
+            event = TaskEvent(self.id, len(self._events) + 1, event_type, utc_now(),
+                              previous_status, self.status, self.attempt_count, self.retry_count,
+                              json.dumps(snapshot_details(self) if details is None else details,
+                                         ensure_ascii=False))
+            self._events.append(event)
+            return event
+
     @property
     def remaining_retries(self) -> int | None:
         """按任务自身的上限返回剩余重试次数；未设置上限时返回 ``None``。"""
@@ -210,13 +251,14 @@ class Task:
 
     def mark_retrying(self) -> None:
         """把失败的任务改写为等待重试状态，并消耗一次重试次数。"""
-        if self.status is not TaskStatus.FAILED:
-            raise ValueError(f"只有 FAILED 状态的任务可以进入 RETRYING，当前状态为 {self.status.value}")
-        if self.max_retries is not None and self.retry_count >= self.max_retries:
-            raise ValueError("任务已达到 max_retries，不能再次进入 RETRYING")
+        with self._lock:
+            if self.status is not TaskStatus.FAILED:
+                raise ValueError(f"只有 FAILED 状态的任务可以进入 RETRYING，当前状态为 {self.status.value}")
+            if self.max_retries is not None and self.retry_count >= self.max_retries:
+                raise ValueError("任务已达到 max_retries，不能再次进入 RETRYING")
 
-        self.retry_count += 1
-        self.status = TaskStatus.RETRYING
+            self.retry_count += 1
+            self.status = TaskStatus.RETRYING
 
     def __repr__(self) -> str:
         retry = ""

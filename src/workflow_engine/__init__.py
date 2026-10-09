@@ -5,6 +5,7 @@
 """
 
 from .executor import Executor, execute
+from .events import TaskEvent, TaskEventType
 from .concurrency import ConcurrentWorker
 from .lifecycle import WorkerStatus
 from .queue import TaskQueue
@@ -23,6 +24,8 @@ from .worker import Worker, WorkerLoop
 from .persistence import SQLiteTaskStore, PersistenceError, IdempotencyConflict, UncertainExecutionError, StoredTaskError
 
 __all__ = [
+    "TaskEvent",
+    "TaskEventType",
     "SQLiteTaskStore",
     "PersistenceError",
     "IdempotencyConflict",

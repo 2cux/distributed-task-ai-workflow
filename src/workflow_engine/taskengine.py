@@ -23,6 +23,7 @@ from .timeout import TimeoutExecutor, TimeoutPolicy
 from .worker import Worker
 from .persistence import SQLiteTaskStore, PersistentExecutor
 from .task import TaskStatus
+from .events import TaskEvent
 
 
 class TaskEngine:
@@ -58,6 +59,7 @@ class TaskEngine:
         queue = TaskQueue()
         self._store = None
         self._submission_lock = RLock()
+        self._submitted_tasks: dict[str, Task] = {}
         self._retry_policy = retry_policy
         if database_path is not None:
             if task_registry is None:
@@ -92,8 +94,15 @@ class TaskEngine:
 
         该方法不执行任务；调用 :meth:`start` 才会进入既有 Worker 流程。
         """
+        if not isinstance(task, Task):
+            raise TypeError("task 必须是 Task 实例")
         if self._store is None:
-            self._scheduler.submit(task)
+            with self._submission_lock:
+                existing = self._submitted_tasks.get(task.id)
+                if existing is not None and existing is not task:
+                    raise ValueError("同一任务 id 不能提交不同的 Task 对象")
+                self._scheduler.submit(task)
+                self._submitted_tasks[task.id] = task
             return task
         with self._submission_lock:
             limit = self._retry_policy.limit_for(task) if self._retry_policy is not None else 0
@@ -107,6 +116,16 @@ class TaskEngine:
         if self._store is None:
             raise RuntimeError("get_task 需要持久化模式")
         return self._store.get(task_id)
+
+    def get_events(self, task_id: str, *, after_sequence: int = 0) -> list[TaskEvent]:
+        """按序读取任务执行历史；after_sequence 用于增量读取。"""
+        if type(after_sequence) is not int or after_sequence < 0:
+            raise ValueError("after_sequence 必须是非负整数")
+        if self._store is not None:
+            return self._store.get_events(task_id, after_sequence=after_sequence)
+        with self._submission_lock:
+            task = self._submitted_tasks.get(task_id)
+        return [] if task is None else [event for event in task.events if event.sequence > after_sequence]
 
     def submit_many(self, tasks: Iterable[Task]) -> list[Task]:
         """按迭代顺序提交多个任务，返回相同的任务对象列表。"""

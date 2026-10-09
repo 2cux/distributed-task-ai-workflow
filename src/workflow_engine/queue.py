@@ -23,6 +23,7 @@ import threading
 import time
 
 from .task import Task, TaskStatus
+from .events import TaskEventType
 
 #: 允许进入队列的状态：都是"等待被执行"的状态。
 QUEUEABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.PENDING, TaskStatus.RETRYING})
@@ -60,6 +61,8 @@ class TaskQueue:
 
                 heapq.heappush(self._tasks, (-task.priority, next(self._sequence), task))
                 self._queued_ids.add(task.id)
+                if task.status is TaskStatus.PENDING and not getattr(task, "_persisted", False):
+                    task._record_event(TaskEventType.SUBMITTED, details={"priority": task.priority})
                 self._tasks_ready.notify()
 
     def dequeue(self) -> Task | None:

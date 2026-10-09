@@ -47,10 +47,10 @@ class Executor:
             if task.status is TaskStatus.PENDING and task.attempt_count != 0:
                 raise ValueError("已经执行过首次尝试的任务不能以 PENDING 状态再次执行")
 
-            task.status = TaskStatus.RUNNING
             task._begin_attempt()
             task.result = None
             task.error = None
+            task.status = TaskStatus.RUNNING
 
             try:
                 task.result = self._invoke(task)

@@ -11,6 +11,7 @@ from typing import Callable, Any
 import uuid
 
 from .executor import EXECUTABLE_STATUSES
+from .events import TaskEvent, TaskEventType, utc_now
 from .retry import RetryPolicy
 from .task import Task, TaskStatus
 from .timeout import TimeoutExecutor, TimeoutPolicy, TaskTimeoutError, run_with_timeout
@@ -71,6 +72,7 @@ class SQLiteTaskStore:
         self.registry = dict(registry)
         with self._connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
+        with self._transaction() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS tasks (
                 sequence INTEGER PRIMARY KEY AUTOINCREMENT,
                 id TEXT NOT NULL UNIQUE,
@@ -84,12 +86,35 @@ class SQLiteTaskStore:
                 owner TEXT,
                 retry_limit INTEGER NOT NULL
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS task_events (
+                task_id TEXT NOT NULL REFERENCES tasks(id),
+                sequence INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                previous_status TEXT,
+                status TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL,
+                retry_count INTEGER NOT NULL,
+                details TEXT NOT NULL,
+                PRIMARY KEY(task_id, sequence)
+            )""")
+            # Old databases contain only a snapshot. Never invent earlier attempts.
+            rows = db.execute("""SELECT * FROM tasks WHERE NOT EXISTS
+                (SELECT 1 FROM task_events WHERE task_events.task_id=tasks.id)""").fetchall()
+            for row in rows:
+                self._append_event(db, row, TaskEventType.RESTORED,
+                                   details={"history_available": False,
+                                            "reason": "legacy database snapshot",
+                                            "result": json.loads(row["result"]) if row["result"] is not None else None,
+                                            "error": json.loads(row["error"]) if row["error"] is not None else None,
+                                            "last_error": json.loads(row["last_error"]) if row["last_error"] is not None else None})
 
     @contextmanager
     def _connection(self):
         db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
         db.row_factory = sqlite3.Row
         try:
+            db.execute("PRAGMA foreign_keys=ON")
             db.execute("PRAGMA synchronous=FULL")
             yield db
         finally:
@@ -128,14 +153,50 @@ class SQLiteTaskStore:
             if row is not None:
                 if row["definition"] != definition:
                     raise IdempotencyConflict(f"任务 {task.id!r} 的定义与已提交任务不同")
-                return self._decode(row)
+                return self._decode(row, db)
             if task.status is not TaskStatus.PENDING or task.attempt_count or task.retry_count:
                 raise ValueError("首次持久化提交只接受尚未执行的 PENDING 任务")
             db.execute("INSERT INTO tasks(id, definition, status, retry_limit) VALUES(?,?,?,?)",
                        (task.id, definition, TaskStatus.PENDING.value, retry_limit))
+            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+            self._append_event(db, row, TaskEventType.CREATED, timestamp=task.events[0].timestamp,
+                               details={"name": task.name})
+            self._append_event(db, row, TaskEventType.SUBMITTED,
+                               details={"retry_limit": retry_limit, "priority": task.priority})
+            events = self._read_events(db, task.id)
+        task._events = events
+        task._persisted = True
         return task
 
-    def _decode(self, row) -> Task:
+    @staticmethod
+    def _read_events(db, task_id: str, after_sequence: int = 0) -> list[TaskEvent]:
+        rows = db.execute("""SELECT * FROM task_events WHERE task_id=? AND sequence>?
+            ORDER BY sequence""", (task_id, after_sequence)).fetchall()
+        return [TaskEvent(row["task_id"], row["sequence"], TaskEventType(row["event_type"]),
+                          row["timestamp"], TaskStatus(row["previous_status"]) if row["previous_status"] else None,
+                          TaskStatus(row["status"]), row["attempt_count"], row["retry_count"], row["details"])
+                for row in rows]
+
+    def get_events(self, task_id: str, *, after_sequence: int = 0) -> list[TaskEvent]:
+        """读取已提交事件；未知任务返回空列表，可通过序号增量读取。"""
+        if type(after_sequence) is not int or after_sequence < 0:
+            raise ValueError("after_sequence 必须是非负整数")
+        with self._connection() as db:
+            return self._read_events(db, task_id, after_sequence)
+
+    def _append_event(self, db, row, event_type: TaskEventType,
+                      previous_status: TaskStatus | None = None, *,
+                      status: TaskStatus | None = None, retry_count: int | None = None,
+                      timestamp: str | None = None, details: dict | None = None) -> None:
+        sequence = db.execute("SELECT COALESCE(MAX(sequence),0)+1 FROM task_events WHERE task_id=?",
+                              (row["id"],)).fetchone()[0]
+        db.execute("""INSERT INTO task_events VALUES (?,?,?,?,?,?,?,?,?)""",
+                   (row["id"], sequence, event_type.value, timestamp or utc_now(),
+                    previous_status.value if previous_status else None,
+                    status.value if status else row["status"], row["attempt_count"],
+                    row["retry_count"] if retry_count is None else retry_count, _json(details or {})))
+
+    def _decode(self, row, db) -> Task:
         definition = json.loads(row["definition"])
         handler = definition.pop("handler")
         try:
@@ -147,23 +208,27 @@ class SQLiteTaskStore:
                     retry_count=row["retry_count"], **definition)
         task._attempt_count = row["attempt_count"]
         task._persisted_retry_limit = row["retry_limit"]
+        task._persisted = True
         task.result = json.loads(row["result"]) if row["result"] is not None else None
         for field in ("error", "last_error"):
             if row[field] is not None:
                 data = json.loads(row[field])
                 cls = UncertainExecutionError if data["type"] == "UncertainExecutionError" else StoredTaskError
                 setattr(task, field, cls(f"{data['type']}: {data['message']}"))
+        task._events = self._read_events(db, task.id)
         return task
 
     def get(self, task_id: str) -> Task | None:
         with self._connection() as db:
+            db.execute("BEGIN")
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
-            return None if row is None else self._decode(row)
+            return None if row is None else self._decode(row, db)
 
     def pending(self) -> list[Task]:
         with self._connection() as db:
+            db.execute("BEGIN")
             rows = db.execute("SELECT * FROM tasks WHERE status IN ('PENDING','RETRYING') ORDER BY sequence").fetchall()
-            return [self._decode(row) for row in rows]
+            return [self._decode(row, db) for row in rows]
 
     def claim(self, task: Task, owner: str) -> Task | None:
         if task.status not in EXECUTABLE_STATUSES:
@@ -175,7 +240,10 @@ class SQLiteTaskStore:
                 (owner, task.id, task.status.value, task.attempt_count, task.retry_count)).rowcount
             if not changed:
                 return None
-            return self._decode(db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone())
+            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+            self._append_event(db, row, TaskEventType.STARTED, task.status,
+                               details={"owner": owner})
+            return self._decode(row, db)
 
     @staticmethod
     def _error(error: BaseException | None) -> str | None:
@@ -195,6 +263,24 @@ class SQLiteTaskStore:
                  self._error(task.last_error), task.id, owner, task.attempt_count)).rowcount
             if not changed:
                 raise PersistenceError("执行所有权已失效，拒绝旧执行器覆盖任务")
+            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+            if task.status is TaskStatus.SUCCESS:
+                self._append_event(db, row, TaskEventType.SUCCEEDED, TaskStatus.RUNNING,
+                                   details={"result": json.loads(result), "owner": owner})
+            else:
+                details = {"error_type": type(task.error).__name__ if task.error else None,
+                           "error_message": str(task.error) if task.error else None, "owner": owner}
+                if isinstance(task.error, TaskTimeoutError):
+                    details.update(timeout=task.error.timeout, elapsed=task.error.elapsed)
+                retrying = task.status is TaskStatus.RETRYING
+                self._append_event(db, row, TaskEventType.FAILED, TaskStatus.RUNNING,
+                                   status=TaskStatus.FAILED,
+                                   retry_count=task.retry_count - int(retrying), details=details)
+                if retrying:
+                    self._append_event(db, row, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
+                                       details={"retry_limit": row["retry_limit"]})
+            events = self._read_events(db, task.id)
+        task._events = events
 
     def recover_interrupted(self) -> list[Task]:
         """Call ONLY after all previous workers using this database have stopped.
@@ -206,7 +292,7 @@ class SQLiteTaskStore:
         with self._transaction() as db:
             rows = db.execute("SELECT * FROM tasks WHERE status='RUNNING' ORDER BY sequence").fetchall()
             for row in rows:
-                task = self._decode(row)
+                task = self._decode(row, db)
                 task.error = UncertainExecutionError("进程中断，业务执行结果不确定")
                 task.status = TaskStatus.FAILED
                 if task.idempotent and task.retry_count < row["retry_limit"]:
@@ -215,6 +301,16 @@ class SQLiteTaskStore:
                 db.execute("""UPDATE tasks SET status=?, retry_count=?, error=?, last_error=?,
                     owner=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
                     self._error(task.error), self._error(task.last_error), task.id))
+                updated = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+                retrying = task.status is TaskStatus.RETRYING
+                self._append_event(db, updated, TaskEventType.INTERRUPTED, TaskStatus.RUNNING,
+                                   status=TaskStatus.FAILED, retry_count=row["retry_count"],
+                                   details={"error_type": "UncertainExecutionError",
+                                            "error_message": str(task.error), "owner": row["owner"]})
+                if retrying:
+                    self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
+                                       details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"]})
+                task._events = self._read_events(db, task.id)
                 recovered.append(task)
         return recovered
 
@@ -238,7 +334,6 @@ class PersistentExecutor(TimeoutExecutor):
                 # A different engine owns this task or already committed it.
                 # Do not mirror RETRYING into this stale queue: only its owner enqueues.
                 return self.store.get(task.id) or task
-            task.status = TaskStatus.RUNNING
             # The committed definition is authoritative even if the caller mutated
             # its in-memory Task after submission.
             for field in ("name", "callable", "args", "kwargs", "priority", "max_retries",
@@ -248,6 +343,8 @@ class PersistentExecutor(TimeoutExecutor):
             task.retry_count = claimed.retry_count
             task.result = None
             task.error = None
+            task.status = TaskStatus.RUNNING
+            task._events = list(claimed.events)
             try:
                 task.result = self._invoke(task)
                 _json(task.result)

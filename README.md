@@ -314,6 +314,66 @@ Scheduler(queue, worker).submit(Task(name="call-model", callable=call_model, tim
 - `RetryPolicy`、`TaskQueue`、`Worker`、`Scheduler` 的职责与契约都不变：重试链路
   不需要感知超时，超时只是一种普通失败。
 
+## 任务执行事件记录
+
+任务当前状态继续保存在 `Task.status/result/error` 中，同时新增只追加的历史记录。
+`Task.events` 返回不可修改的事件快照；`TaskEngine.get_events(task_id)` 按任务内序号
+读取历史，`after_sequence` 可增量读取。内存模式的历史随进程保存，SQLite 模式的
+历史持久化到新增的 `task_events` 表，重启、重复提交和重新加载不会生成重复事件。
+
+```python
+from workflow_engine import Task, TaskEngine, RetryPolicy
+
+engine = TaskEngine(
+    database_path="tasks.db",
+    task_registry={"abs": abs},
+    retry_policy=RetryPolicy(2),
+)
+task = engine.submit(Task("absolute", abs, args=(-7,)))
+engine.start()
+for event in engine.get_events(task.id):
+    print(event.sequence, event.timestamp, event.event_type.value,
+          event.previous_status, event.status, event.attempt_count,
+          event.retry_count, event.details)
+new_events = engine.get_events(task.id, after_sequence=2)
+```
+
+| 事件 | 含义 |
+| --- | --- |
+| `CREATED` | 任务创建，持久化时保留原始创建时间 |
+| `SUBMITTED` | 首次提交被接受（内存队列或数据库） |
+| `STARTED` | 一次尝试开始；持久化模式已成功获得执行所有权 |
+| `SUCCEEDED` | 本次尝试成功 |
+| `FAILED` | 本次尝试失败，保留异常类型和消息；超时还记录上限及实际等待时间 |
+| `RETRY_SCHEDULED` | 消耗一次重试预算，进入等待重试状态 |
+| `INTERRUPTED` | 显式恢复发现执行中断，结果不确定；后续可重试或停留在失败状态 |
+| `RESTORED` | 从已有状态建立历史起点，旧库无法补回过去的执行过程 |
+
+例如失败后重试成功的历史为：`CREATED → SUBMITTED → STARTED → FAILED →
+RETRY_SCHEDULED → STARTED → SUCCEEDED`。失败事件保留当时的错误和计数，不会被
+后续成功覆盖。每个事件带有 UTC 时间、前后状态、尝试次数和重试次数；任务内序号
+决定事件顺序，系统时钟调整不会改变查询顺序。`details` 每次返回独立副本。
+SQLite 成功事件保存 JSON 结果，内存模式为兼容任意 Python 返回值保存 `result_repr`。
+
+SQLite 的状态更新和对应事件写入共用一个事务：失败和重试决定同时提交，事件写入
+失败会回滚状态更新，过期执行器无法追加完成事件。`get_task()` 与事件查询读取的
+是已提交历史，持久化任务的 `Task.events` 也是最近一次同步的已提交快照。
+事件标记引擎生命周期，不记录业务函数内部的每条语句或后台软超时线程的后续执行。
+持久化软超时仍等待旧调用结束后提交失败事件，保持现有的避免重试重叠语义。
+
+旧数据库首次打开时会自动建立事件表，并为已有任务写入一个 `RESTORED` 事件，
+其中 `history_available=False` 明确表示历史缺失；以后发生的事件正常追加。
+内存引擎拒绝用不同 Task 对象复用已经提交过的 id，避免替换并丢失已有历史。
+
+独立测试类位于 `tests/test_task_events.py` 和 `tests/test_persistent_events.py`，
+覆盖事件不可变性、执行与重试、超时、重启与幂等提交、事务回滚与并发竞争、中断恢复、
+旧库升级和真实子进程崩溃。可单独运行：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python -m unittest discover -s tests -p '*events.py' -v
+```
+
 ## 待确定
 
 - 原语清单中其余原语与各自语义
