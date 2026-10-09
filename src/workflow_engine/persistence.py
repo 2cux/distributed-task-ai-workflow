@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sqlite3
 import threading
+import time
 from typing import Callable, Any
 import uuid
 
@@ -98,6 +99,11 @@ class SQLiteTaskStore:
                 details TEXT NOT NULL,
                 PRIMARY KEY(task_id, sequence)
             )""")
+            columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
+            for name, declaration in (("retry_at", "REAL"),
+                                      ("retry_config", "TEXT NOT NULL DEFAULT '{}'")):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE tasks ADD COLUMN {name} {declaration}")
             # Old databases contain only a snapshot. Never invent earlier attempts.
             rows = db.execute("""SELECT * FROM tasks WHERE NOT EXISTS
                 (SELECT 1 FROM task_events WHERE task_events.task_id=tasks.id)""").fetchall()
@@ -140,7 +146,7 @@ class SQLiteTaskStore:
                           max_retries=task.max_retries, timeout=task.timeout,
                           idempotent=task.idempotent))
 
-    def submit(self, task: Task, retry_limit: int = 0) -> Task:
+    def submit(self, task: Task, retry_limit: int = 0, *, retry_policy: RetryPolicy | None = None) -> Task:
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
         if type(retry_limit) is not int or retry_limit < 0:
@@ -156,8 +162,10 @@ class SQLiteTaskStore:
                 return self._decode(row, db)
             if task.status is not TaskStatus.PENDING or task.attempt_count or task.retry_count:
                 raise ValueError("首次持久化提交只接受尚未执行的 PENDING 任务")
-            db.execute("INSERT INTO tasks(id, definition, status, retry_limit) VALUES(?,?,?,?)",
-                       (task.id, definition, TaskStatus.PENDING.value, retry_limit))
+            config = {} if retry_policy is None else dict(initial_delay=retry_policy.initial_delay,
+                backoff_factor=retry_policy.backoff_factor, max_delay=retry_policy.max_delay)
+            db.execute("INSERT INTO tasks(id, definition, status, retry_limit, retry_config) VALUES(?,?,?,?,?)",
+                       (task.id, definition, TaskStatus.PENDING.value, retry_limit, _json(config)))
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
             self._append_event(db, row, TaskEventType.CREATED, timestamp=task.events[0].timestamp,
                                details={"name": task.name})
@@ -208,6 +216,8 @@ class SQLiteTaskStore:
                     retry_count=row["retry_count"], **definition)
         task._attempt_count = row["attempt_count"]
         task._persisted_retry_limit = row["retry_limit"]
+        task._persisted_retry_config = json.loads(row["retry_config"])
+        task._retry_at = row["retry_at"]
         task._persisted = True
         task.result = json.loads(row["result"]) if row["result"] is not None else None
         for field in ("error", "last_error"):
@@ -235,9 +245,10 @@ class SQLiteTaskStore:
             raise ValueError("只能领取 PENDING 或 RETRYING 任务")
         with self._transaction() as db:
             changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?,
-                attempt_count=attempt_count+1, result=NULL, error=NULL
-                WHERE id=? AND status=? AND attempt_count=? AND retry_count=?""",
-                (owner, task.id, task.status.value, task.attempt_count, task.retry_count)).rowcount
+                attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
+                WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
+                AND (retry_at IS NULL OR retry_at<=?)""",
+                (owner, task.id, task.status.value, task.attempt_count, task.retry_count, time.time())).rowcount
             if not changed:
                 return None
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
@@ -257,10 +268,10 @@ class SQLiteTaskStore:
         result = _json(task.result)
         with self._transaction() as db:
             changed = db.execute("""UPDATE tasks SET status=?, retry_count=?, result=?,
-                error=?, last_error=?, owner=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks)
+                error=?, last_error=?, retry_at=?, owner=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks)
                 WHERE id=? AND status='RUNNING' AND owner=? AND attempt_count=?""",
                 (task.status.value, task.retry_count, result, self._error(task.error),
-                 self._error(task.last_error), task.id, owner, task.attempt_count)).rowcount
+                 self._error(task.last_error), task.retry_at, task.id, owner, task.attempt_count)).rowcount
             if not changed:
                 raise PersistenceError("执行所有权已失效，拒绝旧执行器覆盖任务")
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
@@ -278,7 +289,8 @@ class SQLiteTaskStore:
                                    retry_count=task.retry_count - int(retrying), details=details)
                 if retrying:
                     self._append_event(db, row, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
-                                       details={"retry_limit": row["retry_limit"]})
+                                       details={"retry_limit": row["retry_limit"],
+                                                "retry_delay": task._retry_delay, "retry_at": task.retry_at})
             events = self._read_events(db, task.id)
         task._events = events
 
@@ -296,11 +308,10 @@ class SQLiteTaskStore:
                 task.error = UncertainExecutionError("进程中断，业务执行结果不确定")
                 task.status = TaskStatus.FAILED
                 if task.idempotent and task.retry_count < row["retry_limit"]:
-                    task.last_error = task.error
-                    task.mark_retrying()
+                    RetryPolicy(row["retry_limit"], **task._persisted_retry_config).begin_retry(task)
                 db.execute("""UPDATE tasks SET status=?, retry_count=?, error=?, last_error=?,
-                    owner=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
-                    self._error(task.error), self._error(task.last_error), task.id))
+                    owner=NULL, retry_at=?, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
+                    self._error(task.error), self._error(task.last_error), task.retry_at, task.id))
                 updated = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
                 retrying = task.status is TaskStatus.RETRYING
                 self._append_event(db, updated, TaskEventType.INTERRUPTED, TaskStatus.RUNNING,
@@ -309,7 +320,8 @@ class SQLiteTaskStore:
                                             "error_message": str(task.error), "owner": row["owner"]})
                 if retrying:
                     self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
-                                       details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"]})
+                                       details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"],
+                                                "retry_delay": task._retry_delay, "retry_at": task.retry_at})
                 task._events = self._read_events(db, task.id)
                 recovered.append(task)
         return recovered
@@ -341,6 +353,7 @@ class PersistentExecutor(TimeoutExecutor):
                 setattr(task, field, getattr(claimed, field))
             task._attempt_count = claimed.attempt_count
             task.retry_count = claimed.retry_count
+            task._retry_at = None
             task.result = None
             task.error = None
             task.status = TaskStatus.RUNNING
@@ -352,7 +365,7 @@ class PersistentExecutor(TimeoutExecutor):
                 task.result = None
                 task.error = error
                 task.status = TaskStatus.FAILED
-                policy = RetryPolicy(claimed._persisted_retry_limit)
+                policy = RetryPolicy(claimed._persisted_retry_limit, **claimed._persisted_retry_config)
                 if (not isinstance(error, PersistenceError)
                         and task.retry_count < claimed._persisted_retry_limit
                         and policy.should_retry(task)):

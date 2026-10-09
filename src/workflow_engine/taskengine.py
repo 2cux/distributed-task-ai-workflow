@@ -106,7 +106,7 @@ class TaskEngine:
             return task
         with self._submission_lock:
             limit = self._retry_policy.limit_for(task) if self._retry_policy is not None else 0
-            stored = self._store.submit(task, limit)
+            stored = self._store.submit(task, limit, retry_policy=self._retry_policy)
             if stored.status in (TaskStatus.PENDING, TaskStatus.RETRYING) and not self._queue.contains(stored):
                 self._scheduler.submit(stored)
             return stored

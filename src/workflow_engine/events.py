@@ -47,6 +47,8 @@ def utc_now() -> str:
 
 def snapshot_details(task: Task) -> dict[str, Any]:
     details: dict[str, Any] = {}
+    if task.status.value == "RETRYING":
+        details.update(retry_delay=task._retry_delay, retry_at=task.retry_at)
     if task.error is not None:
         try:
             message = str(task.error)

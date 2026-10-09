@@ -101,6 +101,8 @@ class Task:
     # 只能由 Executor 在持有 _lock 时递增。它不是用户输入，也不是重试预算：
     # 前者记录实际开始的次数，后者记录已安排的重试次数。
     _attempt_count: int = field(default=0, init=False, repr=False, compare=False)
+    _retry_at: float | None = field(default=None, init=False, repr=False, compare=False)
+    _retry_delay: float = field(default=0, init=False, repr=False, compare=False)
     # 不参与序列化、比较或公开构造参数；执行器与策略用它保证同一任务的
     # 生命周期写入是原子的。不同 Task 各自持锁，故不会降低任务间并发度。
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
@@ -234,6 +236,13 @@ class Task:
     def _begin_attempt(self) -> None:
         """记录一次已经获准开始的执行；仅供执行器在持锁时调用。"""
         self._attempt_count += 1
+        self._retry_at = None
+
+    @property
+    def retry_at(self) -> float | None:
+        """已安排重试的 Unix 到期时间；立即重试或未安排时为 None。"""
+        with self._lock:
+            return self._retry_at
 
     def can_retry(self) -> bool:
         """按任务自身的上限返回是否还有剩余重试次数。

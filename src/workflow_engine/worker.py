@@ -143,7 +143,10 @@ class Worker:
         self._begin_run()
         processed: list[Task] = []
         try:
-            while not self._should_stop() and (task := self.process_next()) is not None:
+            while not self._should_stop():
+                task = self.process_next(wait_for_task=not self._queue.is_empty())
+                if task is None:
+                    break
                 processed.append(task)
             return processed
         finally:

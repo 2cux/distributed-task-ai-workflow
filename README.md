@@ -44,7 +44,7 @@
 | Worker | 从队列取出任务并同步交给执行器 | 已实现 |
 | WorkerLoop | 在专用线程中持续驱动 Worker，直至收到停止请求 | 已实现 |
 | Scheduler | 接收任务、入队并启动 Worker 执行当前队列 | 已实现 |
-| RetryPolicy | 判断失败任务是否还有剩余重试次数 | 已实现 |
+| RetryPolicy | 判断重试预算，计算退避延迟并安排重试时间 | 已实现 |
 | TimeoutPolicy | 给出"一次执行"的超时上限，任务级优先、策略默认值兜底 | 已实现 |
 | TimeoutExecutor | 同步执行单次尝试并施加超时上限的执行器 | 已实现 |
 | ConcurrentWorker | 固定大小线程池并发消费队列 | 已实现 |
@@ -249,18 +249,45 @@ PENDING ──> RUNNING ──> SUCCESS
 
 | 组件 | 职责 |
 | --- | --- |
-| Task | 只保存重试信息：`max_retries`、`retry_count`、`last_error`，不执行重试 |
-| RetryPolicy | 只做决策：按任务级上限优先、策略默认值兜底的规则判断是否重试，并记录重试次数 |
+| Task | 保存 `max_retries`、`retry_count`、`last_error` 和只读 `retry_at`，不执行重试 |
+| RetryPolicy | 按任务级上限优先判断重试预算，记录次数并计算退避到期时间 |
 | Worker | 编排：执行失败且策略允许时，把任务重新放回队尾 |
-| TaskQueue | 只接受 `PENDING` / `RETRYING` 任务，且同一任务至多出现一次 |
+| TaskQueue | 到期的任务按优先级及 FIFO 出队，同一任务至多出现一次 |
 
 对原有行为的影响：
 
-- 队列始终优先取出 `priority` 数值更大的任务；相同优先级保持 FIFO。重试会保留任务原优先级，因此高优先级任务的重试仍会先于较低优先级的待执行任务；同优先级的重试进入同级队尾，其他同级任务不会被它阻塞。
+- 队列在已到期的任务中优先取出 `priority` 数值更大的任务；相同优先级保持入队 FIFO。未到期的重试不阻塞其他任务，到期后保留原优先级参与调度。
 - 每次重试都消耗一次策略允许的次数，`TaskQueue.size()`、`Worker.run()`、`Scheduler.start()` 仍在有限步内结束。
 - `run()` / `start()` 返回的列表按每次尝试排列，同一个任务对象可能出现多次（每次尝试一项）。
 - 不配置 `RetryPolicy` 时 Worker 行为与之前完全一致：失败任务停留在 `FAILED`。
 - `Scheduler` 契约不变，仍只负责入队与启动 Worker；重试由 Worker 与策略完成。
+
+### 重试退避
+
+```python
+policy = RetryPolicy(
+    max_retries=5,
+    initial_delay=0.5,  # 第一次重试等待 0.5 秒
+    backoff_factor=2,  # 设置为 1 则使用固定间隔
+    max_delay=4,       # 每次最多等待 4 秒
+)
+engine = TaskEngine(retry_policy=policy, max_workers=2)
+```
+
+第 n 次重试的延迟为 `min(initial_delay * backoff_factor ** (n - 1), max_delay)`，
+上述配置依次等待 0.5、1、2、4、4 秒。默认 `initial_delay=0` 保持立即重试；
+`backoff_factor` 默认 2、必须至少为 1，`max_delay` 默认 60 秒。延迟必须为有限非负
+数，布尔值不作为数值接受。`policy.delay_for(n)` 可独立计算延迟，不消耗预算。
+
+退避从失败被安排重试时开始，任务保持 `RETRYING`，`task.retry_at` 是只读 Unix
+到期时间（立即重试为 `None`）。等待不会占用线程池执行槽位；同步、并发和常驻
+Worker 均可在等待期间消费其他就绪任务。`dequeue()` / 默认 `process_next()` 只取
+就绪任务，`dequeue_wait()` 等待到期；`size()` / `pending_count` 包含退避中的任务。
+`run()` / `start()` 会等待已安排的重试完成，停止请求可唤醒等待并把任务留在队列。
+
+SQLite 模式会在首次提交时保存退避配置，在安排重试时原子保存到期时间；重启
+沿用原任务配置和剩余等待时间。旧数据库自动增加字段并保持立即重试。
+`RETRY_SCHEDULED` 事件包含 `retry_delay` 和 `retry_at`，可用于查询重试计划。
 
 ## 超时
 

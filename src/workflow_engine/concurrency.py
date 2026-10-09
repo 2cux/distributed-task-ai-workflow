@@ -20,8 +20,8 @@ class ConcurrentWorker(Worker):
     """用固定大小线程池消费 :class:`TaskQueue` 的 Worker。
 
     返回值按提交给线程池的顺序排列，而非完成顺序；因此任务函数本身的完成
-    顺序没有契约。失败后的重试在该尝试结束后立即重新入队，与其他待执行任务
-    一起按优先级及同级 FIFO 竞争空闲槽位。
+    顺序没有契约。失败后的重试在该尝试结束后重新入队，到期后与其他就绪任务
+    一起按优先级及同级 FIFO 竞争空闲槽位；退避等待不占用执行槽位。
     """
 
     def __init__(
@@ -74,9 +74,28 @@ class ConcurrentWorker(Worker):
                             processed.append(task)
 
                     if not in_flight:
-                        break
+                        if self._should_stop() or self._queue.is_empty():
+                            break
+                        # 仅有退避任务时等待到期；不占用线程池执行槽位。
+                        task = self._queue.dequeue_wait(stop_requested=self._should_stop)
+                        if task is not None:
+                            with self._lifecycle_lock:
+                                if self._should_stop():
+                                    self._queue.enqueue(task)
+                                else:
+                                    try:
+                                        future = pool.submit(self._execute_one, task)
+                                    except BaseException:
+                                        self._queue.enqueue(task)
+                                        raise
+                                    in_flight[future] = task
+                                    processed.append(task)
+                        continue
 
-                    completed, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                    delay = self._queue.next_ready_delay() if len(in_flight) < self._max_workers else None
+                    # 等待在途任务的同时，也要在退避到期时补上空闲槽位。
+                    timeout = min(delay, 0.05) if delay is not None else None
+                    completed, _ = wait(in_flight, timeout=timeout, return_when=FIRST_COMPLETED)
                     # 先回收完成的尝试并安排重试，再从优先级队列补位。
                     # 按提交顺序处理同时观察到的完成项，避免 set 的随机顺序。
                     for future in tuple(in_flight):
