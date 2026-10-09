@@ -72,6 +72,45 @@ completed_attempts = engine.start()
 `max_workers=1` 使用同步 `Worker`，大于 1 时使用 `ConcurrentWorker`。即使没有
 设置默认超时策略，任务自身的 `timeout` 仍会通过 `TimeoutExecutor` 生效。
 
+## 延迟调度
+
+通过 `Task.scheduled_at` 指定首次执行的 Unix 到期时间（秒）：
+
+```python
+import time
+from workflow_engine import Task, TaskEngine
+
+engine = TaskEngine(max_workers=2)
+task = engine.submit(Task(
+    name="delayed-job", callable=abs, args=(-42,),
+    scheduled_at=time.time() + 10,  # 十秒后才允许首次执行
+))
+engine.start()  # 等待到期并执行，返回时任务已完成
+```
+
+`scheduled_at=None`（默认）或已过去的时间立即就绪；时间必须是有限非负数，
+不接受布尔值。延迟期间任务保持 `PENDING`，不消耗执行次数或重试预算，仍计入
+`pending_count`。未到期的高优先级任务不会阻塞就绪任务；到期任务按优先级及
+同级提交 FIFO 竞争执行机会，到期时间表示最早可执行时间，不保证准点开始。
+
+同步 Worker、并发 Worker 和 WorkerLoop 共用延迟队列；等待不占用线程池槽位，
+新任务入队和停止请求会唤醒等待。`start()` 会等待队列中延迟任务完成，停止后未执行
+任务保留在队列。首次失败后的重试只使用 RetryPolicy 安排的 `retry_at`。
+
+入队时根据 Unix 时间计算剩余延迟，进程内使用单调时钟等待；提交后修改
+`scheduled_at` 不会重新安排已排队条目。SQLite 模式保存原始到期时间，重启后重新
+计算剩余等待，并在原子领取时检查数据库中的时间。到期时间属于持久化任务定义，
+同一 ID 使用不同到期时间重复提交会触发 `IdempotencyConflict`。旧库自动升级，
+原有任务仍立即就绪。`SUBMITTED` 事件的 `details` 包含 `scheduled_at`。
+
+四个独立测试类位于 `tests/test_delayed_scheduling.py`，覆盖参数校验、队列到期与
+排序、执行与停止、持久化恢复及旧库升级。可单独运行：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python -m unittest discover -s tests -p test_delayed_scheduling.py -v
+```
+
 ## 任务持久化与故障恢复
 
 通过 `database_path` 开启 SQLite 持久化；省略该参数保留原有内存模式。

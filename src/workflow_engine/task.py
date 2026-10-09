@@ -20,6 +20,7 @@ Task 只是一份描述。它不负责调度或执行，也不执行重试；执
   非重试任务不会被执行第二次
 - ``last_error``  最近一次触发重试的异常，默认 None
 - ``timeout``     单次执行的超时上限（秒）；``None`` 表示由超时策略决定
+- ``scheduled_at`` 首次执行的 Unix 到期时间；``None`` 表示立即就绪
 
 ``timeout`` 描述的是"一次执行可以运行多久"，不是任务的总体时间预算：上限在
 每次执行开始时重新计时，任务被重试多次时每次尝试都拿到完整的一份上限。它是
@@ -98,6 +99,7 @@ class Task:
     timeout: float | None = None
     # 业务保证以稳定的 task.id（放入 args/kwargs）去重后，才可开启崩溃重放。
     idempotent: bool = False
+    scheduled_at: float | None = None
     # 只能由 Executor 在持有 _lock 时递增。它不是用户输入，也不是重试预算：
     # 前者记录实际开始的次数，后者记录已安排的重试次数。
     _attempt_count: int = field(default=0, init=False, repr=False, compare=False)
@@ -124,6 +126,11 @@ class Task:
         之后所有写入都必须遵循状态图，因此 ``SUCCESS`` 不可能回到
         ``RUNNING``。
         """
+        if name == "scheduled_at" and value is not None:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError("scheduled_at 必须是有限非负 Unix 时间或 None")
+            if not math.isfinite(value) or value < 0:
+                raise ValueError("scheduled_at 必须是有限非负 Unix 时间或 None")
         if name == "status":
             if not isinstance(value, TaskStatus):
                 raise TypeError("status 必须是 TaskStatus")

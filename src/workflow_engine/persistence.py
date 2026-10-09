@@ -100,7 +100,7 @@ class SQLiteTaskStore:
                 PRIMARY KEY(task_id, sequence)
             )""")
             columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
-            for name, declaration in (("retry_at", "REAL"),
+            for name, declaration in (("scheduled_at", "REAL"), ("retry_at", "REAL"),
                                       ("retry_config", "TEXT NOT NULL DEFAULT '{}'")):
                 if name not in columns:
                     db.execute(f"ALTER TABLE tasks ADD COLUMN {name} {declaration}")
@@ -141,10 +141,14 @@ class SQLiteTaskStore:
         names = [name for name, func in self.registry.items() if func is task.callable]
         if len(names) != 1:
             raise PersistenceError("持久化任务的 callable 必须在 registry 中以唯一名称注册")
-        return _json(dict(name=task.name, handler=names[0], args=list(task.args),
+        definition = dict(name=task.name, handler=names[0], args=list(task.args),
                           kwargs=task.kwargs, priority=task.priority,
                           max_retries=task.max_retries, timeout=task.timeout,
-                          idempotent=task.idempotent))
+                          idempotent=task.idempotent)
+        # Preserve the canonical definition of immediate tasks from older databases.
+        if task.scheduled_at is not None:
+            definition["scheduled_at"] = task.scheduled_at
+        return _json(definition)
 
     def submit(self, task: Task, retry_limit: int = 0, *, retry_policy: RetryPolicy | None = None) -> Task:
         if not isinstance(task, Task):
@@ -164,13 +168,14 @@ class SQLiteTaskStore:
                 raise ValueError("首次持久化提交只接受尚未执行的 PENDING 任务")
             config = {} if retry_policy is None else dict(initial_delay=retry_policy.initial_delay,
                 backoff_factor=retry_policy.backoff_factor, max_delay=retry_policy.max_delay)
-            db.execute("INSERT INTO tasks(id, definition, status, retry_limit, retry_config) VALUES(?,?,?,?,?)",
-                       (task.id, definition, TaskStatus.PENDING.value, retry_limit, _json(config)))
+            db.execute("INSERT INTO tasks(id, definition, status, retry_limit, retry_config, scheduled_at) VALUES(?,?,?,?,?,?)",
+                       (task.id, definition, TaskStatus.PENDING.value, retry_limit, _json(config), task.scheduled_at))
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
             self._append_event(db, row, TaskEventType.CREATED, timestamp=task.events[0].timestamp,
                                details={"name": task.name})
             self._append_event(db, row, TaskEventType.SUBMITTED,
-                               details={"retry_limit": retry_limit, "priority": task.priority})
+                               details={"retry_limit": retry_limit, "priority": task.priority,
+                                        "scheduled_at": task.scheduled_at})
             events = self._read_events(db, task.id)
         task._events = events
         task._persisted = True
@@ -247,8 +252,10 @@ class SQLiteTaskStore:
             changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?,
                 attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
                 WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
-                AND (retry_at IS NULL OR retry_at<=?)""",
-                (owner, task.id, task.status.value, task.attempt_count, task.retry_count, time.time())).rowcount
+                AND (retry_at IS NULL OR retry_at<=?)
+                AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
+                (owner, task.id, task.status.value, task.attempt_count, task.retry_count,
+                 time.time(), time.time())).rowcount
             if not changed:
                 return None
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
@@ -349,7 +356,7 @@ class PersistentExecutor(TimeoutExecutor):
             # The committed definition is authoritative even if the caller mutated
             # its in-memory Task after submission.
             for field in ("name", "callable", "args", "kwargs", "priority", "max_retries",
-                          "timeout", "idempotent", "last_error"):
+                          "timeout", "idempotent", "scheduled_at", "last_error"):
                 setattr(task, field, getattr(claimed, field))
             task._attempt_count = claimed.attempt_count
             task.retry_count = claimed.retry_count

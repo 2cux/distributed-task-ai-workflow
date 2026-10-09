@@ -3,7 +3,7 @@
 当前阶段提供进程内、稳定优先级的任务暂存能力。队列只负责接收、保存和
 取出 :class:`Task`，不负责执行或持久化。到期任务中数值更大的
 ``Task.priority`` 会先被取出；优先级相同的任务保持入队 FIFO 顺序。
-未到期的重试由独立的延迟堆保存，不阻塞已就绪任务。
+未到期的首次执行与重试由独立的延迟堆保存，不阻塞已就绪任务。
 
 队列对"什么任务可以进入"有两个约束，用来保证重试重新入队时 FIFO 语义与
 队列视图不被破坏：
@@ -63,14 +63,16 @@ class TaskQueue:
 
                 sequence = next(self._sequence)
                 entry = (-task.priority, sequence, task)
-                delay = max(0.0, task.retry_at - time.time()) if task.retry_at is not None else 0.0
+                due_at = task.scheduled_at if task.status is TaskStatus.PENDING else task.retry_at
+                delay = max(0.0, due_at - time.time()) if due_at is not None else 0.0
                 if delay:
                     heapq.heappush(self._delayed, (time.monotonic() + delay, sequence, entry))
                 else:
                     heapq.heappush(self._tasks, entry)
                 self._queued_ids.add(task.id)
                 if task.status is TaskStatus.PENDING and not getattr(task, "_persisted", False):
-                    task._record_event(TaskEventType.SUBMITTED, details={"priority": task.priority})
+                    task._record_event(TaskEventType.SUBMITTED,
+                                       details={"priority": task.priority, "scheduled_at": task.scheduled_at})
                 self._tasks_ready.notify_all()
 
     def dequeue(self) -> Task | None:
