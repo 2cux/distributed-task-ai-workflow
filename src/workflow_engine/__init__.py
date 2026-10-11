@@ -21,6 +21,7 @@ from .timeout import (
     timeout_for,
 )
 from .worker import Worker, WorkerLoop
+from .worker_registry import WorkerRegistry, WorkerRecord, WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch
 from .persistence import SQLiteTaskStore, PersistenceError, IdempotencyConflict, UncertainExecutionError, StoredTaskError
 
 __all__ = [
@@ -43,6 +44,11 @@ __all__ = [
     "TaskTimeoutError",
     "TimeoutExecutor",
     "TimeoutPolicy",
+    "WorkerRegistry",
+    "WorkerRecord",
+    "WorkerRegistryError",
+    "WorkerAlreadyActive",
+    "WorkerSessionMismatch",
     "Worker",
     "WorkerLoop",
     "WorkerStatus",
