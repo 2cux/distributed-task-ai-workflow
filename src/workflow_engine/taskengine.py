@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable, Any
+from typing import Callable, Any, TYPE_CHECKING
 from threading import RLock
 
 from .concurrency import ConcurrentWorker
@@ -24,6 +24,10 @@ from .worker import Worker
 from .persistence import SQLiteTaskStore, PersistentExecutor
 from .task import TaskStatus
 from .events import TaskEvent
+
+if TYPE_CHECKING:
+    from .worker_registry import WorkerRegistry
+    from .reliable_worker import ReliableWorker
 
 
 class TaskEngine:
@@ -61,6 +65,7 @@ class TaskEngine:
         self._submission_lock = RLock()
         self._submitted_tasks: dict[str, Task] = {}
         self._retry_policy = retry_policy
+        self._timeout_policy = timeout_policy
         if database_path is not None:
             if task_registry is None:
                 raise ValueError("持久化模式需要 task_registry")
@@ -117,6 +122,28 @@ class TaskEngine:
             raise RuntimeError("get_task 需要持久化模式")
         return self._store.get(task_id)
 
+    @property
+    def worker_registry(self) -> WorkerRegistry:
+        """Shared persistent identity, session state and staged recovery controls."""
+        if self._store is None:
+            raise RuntimeError('worker_registry 需要持久化模式')
+        return self._store.workers
+
+    def create_worker(self, worker_id: str, *, heartbeat_interval: float = 1,
+                      heartbeat_timeout: float = 10, poll_interval: float = 0.05) -> ReliableWorker:
+        """Create a registered continuous consumer; call its start/shutdown methods."""
+        if self._store is None:
+            raise RuntimeError('create_worker 需要持久化模式')
+        from .reliable_worker import ReliableWorker
+        return ReliableWorker(self._store, worker_id, heartbeat_interval=heartbeat_interval,
+                              heartbeat_timeout=heartbeat_timeout, poll_interval=poll_interval,
+                              timeout_policy=self._timeout_policy)
+
+    def recover_worker(self, session_id: str) -> list[Task]:
+        if self._store is None:
+            raise RuntimeError('recover_worker 需要持久化模式')
+        return self._store.recover_worker(session_id)
+
     def get_events(self, task_id: str, *, after_sequence: int = 0) -> list[TaskEvent]:
         """按序读取任务执行历史；after_sequence 用于增量读取。"""
         if type(after_sequence) is not int or after_sequence < 0:
@@ -138,4 +165,4 @@ class TaskEngine:
     @property
     def pending_count(self) -> int:
         """返回当前尚未被 Worker 取走的任务数量。"""
-        return self._queue.size()
+        return len(self._store.pending()) if self._store is not None else self._queue.size()

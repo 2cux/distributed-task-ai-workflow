@@ -22,8 +22,15 @@ from .timeout import (
 )
 from .worker import Worker, WorkerLoop
 from .persistence import SQLiteTaskStore, PersistenceError, IdempotencyConflict, UncertainExecutionError, StoredTaskError
+from .persistence import StaleExecutionError
+from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
+                              WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch, WorkerNotReady)
+from .reliable_worker import ReliableWorker, WorkerMonitor
 
 __all__ = [
+    "WorkerRegistry", "WorkerRecord", "WorkerSessionRecord", "WorkerRegistryError",
+    "WorkerAlreadyActive", "WorkerSessionMismatch", "WorkerNotReady",
+    "ReliableWorker", "WorkerMonitor", "StaleExecutionError",
     "TaskEvent",
     "TaskEventType",
     "SQLiteTaskStore",

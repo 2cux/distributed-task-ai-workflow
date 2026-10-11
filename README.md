@@ -180,6 +180,18 @@ pickle、不从数据库动态导入代码。注册名称应随业务版本区�
 当前实现适用于共享本机 SQLite 文件的进程；多主机调度需后续增加服务器数据库
 和明确的 Worker 存活协调机制。
 
+## 多 Worker 与可靠接管
+
+持久化模式新增 `TaskEngine.create_worker(worker_id)`，可在同一主机的多个进程中
+启动常驻消费者，共享数据库原子领取任务；每个 worker 独立注册会话、周期发送
+心跳。`engine.worker_registry` 可查询身份、会话状态和历史。
+
+接管按 `SUSPECT → FENCED → STOPPED → recover_worker(session_id)` 分阶段执行：
+心跳过期只记录怀疑，撤权阻止旧结果写入，确认全部旧业务调用已退出后才恢复任务。
+非幂等或预算耗尽任务保留为结果不确定的失败。仅凭超时不会重放，软超时也会等待
+实际调用退出。使用示例、停止确认的可信边界及独立测试见
+[多 Worker 执行与分阶段恢复](docs/worker_registry.md)。
+
 四个独立测试类覆盖磁盘读写、重复提交与跨引擎竞争、子进程强制退出恢复，以及
 结果提交失败和软超时边界：`TaskPersistenceTests`、`PersistentIdempotencyTests`、
 `CrashRecoveryTests`、`PersistentFailureBoundaryTests`。
@@ -191,11 +203,11 @@ python -m unittest discover -s tests -v
 
 ## 基础并发执行
 
-`ConcurrentWorker` 是当前阶段唯一的并发模型：它在一次 `run()` 调用中创建固定
+`ConcurrentWorker` 是原有同步入口的并发模型：它在一次 `run()` 调用中创建固定
 大小的进程内线程池，最多保留 `max_workers` 个已提交、尚未回收的任务尝试。
 有几个空闲槽位就从队列取几个任务，任一尝试完成后立即回收并补位；其余任务留在
-`TaskQueue` 中，避免在线程池内部积压。队列与在途尝试均为空时返回。不包含协程、分布式 Worker、
-后台常驻服务或动态扩缩容。
+`TaskQueue` 中，避免在线程池内部积压。队列与在途尝试均为空时返回。
+常驻多进程消费者使用上文的 `ReliableWorker`，由数据库选择及领取任务。
 
 ```python
 queue = TaskQueue()

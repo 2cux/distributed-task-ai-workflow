@@ -22,6 +22,10 @@ class PersistenceError(RuntimeError):
     """Task data cannot be persisted, or a stale execution tried to commit."""
 
 
+class StaleExecutionError(PersistenceError):
+    """An execution token or worker session has been fenced."""
+
+
 class IdempotencyConflict(PersistenceError):
     """An existing task ID was submitted with a different task definition."""
 
@@ -101,7 +105,8 @@ class SQLiteTaskStore:
             )""")
             columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
             for name, declaration in (("scheduled_at", "REAL"), ("retry_at", "REAL"),
-                                      ("retry_config", "TEXT NOT NULL DEFAULT '{}'")):
+                                      ("retry_config", "TEXT NOT NULL DEFAULT '{}'"),
+                                      ("worker_session", "TEXT")):
                 if name not in columns:
                     db.execute(f"ALTER TABLE tasks ADD COLUMN {name} {declaration}")
             # Old databases contain only a snapshot. Never invent earlier attempts.
@@ -114,6 +119,8 @@ class SQLiteTaskStore:
                                             "result": json.loads(row["result"]) if row["result"] is not None else None,
                                             "error": json.loads(row["error"]) if row["error"] is not None else None,
                                             "last_error": json.loads(row["last_error"]) if row["last_error"] is not None else None})
+        from .worker_registry import WorkerRegistry
+        self.workers = WorkerRegistry(self.path)
 
     @contextmanager
     def _connection(self):
@@ -245,23 +252,41 @@ class SQLiteTaskStore:
             rows = db.execute("SELECT * FROM tasks WHERE status IN ('PENDING','RETRYING') ORDER BY sequence").fetchall()
             return [self._decode(row, db) for row in rows]
 
-    def claim(self, task: Task, owner: str) -> Task | None:
+    def claim(self, task: Task, owner: str, *, worker_session: str | None = None) -> Task | None:
         if task.status not in EXECUTABLE_STATUSES:
             raise ValueError("只能领取 PENDING 或 RETRYING 任务")
         with self._transaction() as db:
-            changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?,
-                attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
-                WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
+            return self._claim(db, task, owner, worker_session)
+
+    def claim_next(self, worker_session: str, owner: str) -> Task | None:
+        """Select and claim one due task atomically across all consumer processes."""
+        with self._transaction() as db:
+            self.workers._require_claimable(db, worker_session)
+            now = time.time()
+            row = db.execute("""SELECT * FROM tasks
+                WHERE status IN ('PENDING','RETRYING')
                 AND (retry_at IS NULL OR retry_at<=?)
-                AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
-                (owner, task.id, task.status.value, task.attempt_count, task.retry_count,
-                 time.time(), time.time())).rowcount
-            if not changed:
-                return None
-            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
-            self._append_event(db, row, TaskEventType.STARTED, task.status,
-                               details={"owner": owner})
-            return self._decode(row, db)
+                AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)
+                ORDER BY json_extract(definition, '$.priority') DESC, sequence LIMIT 1""",
+                (now, now)).fetchone()
+            return None if row is None else self._claim(db, self._decode(row, db), owner, worker_session)
+
+    def _claim(self, db, task: Task, owner: str, worker_session: str | None) -> Task | None:
+        if worker_session is not None:
+            self.workers._require_claimable(db, worker_session)
+        changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?, worker_session=?,
+            attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
+            WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
+            AND (retry_at IS NULL OR retry_at<=?)
+            AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
+            (owner, worker_session, task.id, task.status.value, task.attempt_count, task.retry_count,
+             time.time(), time.time())).rowcount
+        if not changed:
+            return None
+        row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+        self._append_event(db, row, TaskEventType.STARTED, task.status,
+                           details={"owner": owner, "worker_session": worker_session})
+        return self._decode(row, db)
 
     @staticmethod
     def _error(error: BaseException | None) -> str | None:
@@ -275,12 +300,15 @@ class SQLiteTaskStore:
         result = _json(task.result)
         with self._transaction() as db:
             changed = db.execute("""UPDATE tasks SET status=?, retry_count=?, result=?,
-                error=?, last_error=?, retry_at=?, owner=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks)
-                WHERE id=? AND status='RUNNING' AND owner=? AND attempt_count=?""",
+                error=?, last_error=?, retry_at=?, owner=NULL, worker_session=NULL,
+                sequence=(SELECT MAX(sequence)+1 FROM tasks)
+                WHERE id=? AND status='RUNNING' AND owner=? AND attempt_count=?
+                AND (worker_session IS NULL OR EXISTS (SELECT 1 FROM worker_sessions
+                    WHERE session_id=tasks.worker_session AND state IN ('ACTIVE','SUSPECT','STOPPING')))""",
                 (task.status.value, task.retry_count, result, self._error(task.error),
                  self._error(task.last_error), task.retry_at, task.id, owner, task.attempt_count)).rowcount
             if not changed:
-                raise PersistenceError("执行所有权已失效，拒绝旧执行器覆盖任务")
+                raise StaleExecutionError("执行所有权已失效，拒绝旧执行器覆盖任务")
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
             if task.status is TaskStatus.SUCCESS:
                 self._append_event(db, row, TaskEventType.SUCCEEDED, TaskStatus.RUNNING,
@@ -307,31 +335,47 @@ class SQLiteTaskStore:
         No lease expiry guesses: a slow live worker must never be replayed. Unsafe
         interrupted tasks are quarantined; idempotent ones consume a retry budget.
         """
-        recovered = []
         with self._transaction() as db:
+            if db.execute("SELECT 1 FROM tasks WHERE status='RUNNING' AND worker_session IS NOT NULL").fetchone():
+                raise PersistenceError("注册 worker 的任务必须通过分阶段恢复，不能使用离线全局恢复")
             rows = db.execute("SELECT * FROM tasks WHERE status='RUNNING' ORDER BY sequence").fetchall()
-            for row in rows:
-                task = self._decode(row, db)
-                task.error = UncertainExecutionError("进程中断，业务执行结果不确定")
-                task.status = TaskStatus.FAILED
-                if task.idempotent and task.retry_count < row["retry_limit"]:
-                    RetryPolicy(row["retry_limit"], **task._persisted_retry_config).begin_retry(task)
-                db.execute("""UPDATE tasks SET status=?, retry_count=?, error=?, last_error=?,
-                    owner=NULL, retry_at=?, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
-                    self._error(task.error), self._error(task.last_error), task.retry_at, task.id))
-                updated = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
-                retrying = task.status is TaskStatus.RETRYING
-                self._append_event(db, updated, TaskEventType.INTERRUPTED, TaskStatus.RUNNING,
-                                   status=TaskStatus.FAILED, retry_count=row["retry_count"],
-                                   details={"error_type": "UncertainExecutionError",
-                                            "error_message": str(task.error), "owner": row["owner"]})
-                if retrying:
-                    self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
-                                       details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"],
-                                                "retry_delay": task._retry_delay, "retry_at": task.retry_at})
-                task._events = self._read_events(db, task.id)
-                recovered.append(task)
+            return self._recover_rows(db, rows)
+
+    def _recover_rows(self, db, rows) -> list[Task]:
+        recovered = []
+        for row in rows:
+            task = self._decode(row, db)
+            task.error = UncertainExecutionError("进程中断，业务执行结果不确定")
+            task.status = TaskStatus.FAILED
+            if task.idempotent and task.retry_count < row["retry_limit"]:
+                RetryPolicy(row["retry_limit"], **task._persisted_retry_config).begin_retry(task)
+            db.execute("""UPDATE tasks SET status=?, retry_count=?, error=?, last_error=?,
+                owner=NULL, worker_session=NULL, retry_at=?, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
+                self._error(task.error), self._error(task.last_error), task.retry_at, task.id))
+            updated = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+            retrying = task.status is TaskStatus.RETRYING
+            self._append_event(db, updated, TaskEventType.INTERRUPTED, TaskStatus.RUNNING,
+                               status=TaskStatus.FAILED, retry_count=row["retry_count"],
+                               details={"error_type": "UncertainExecutionError",
+                                        "error_message": str(task.error), "owner": row["owner"],
+                                        "worker_session": row["worker_session"]})
+            if retrying:
+                self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
+                                   details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"],
+                                            "retry_delay": task._retry_delay, "retry_at": task.retry_at})
+            task._events = self._read_events(db, task.id)
+            recovered.append(task)
         return recovered
+
+    def recover_worker(self, session_id: str) -> list[Task]:
+        """Recover only a stopped incarnation, atomically with its retry budget/events."""
+        with self._transaction() as db:
+            row = db.execute('SELECT * FROM worker_sessions WHERE session_id=?', (session_id,)).fetchone()
+            if row is None or row['state'] != 'STOPPED' or not row['stopped_evidence']:
+                raise PersistenceError("未确认旧 worker 调用已经停止，禁止接管任务")
+            rows = db.execute("SELECT * FROM tasks WHERE status='RUNNING' AND worker_session=? ORDER BY sequence",
+                              (session_id,)).fetchall()
+            return self._recover_rows(db, rows)
 
 
 class PersistentExecutor(TimeoutExecutor):
@@ -344,11 +388,18 @@ class PersistentExecutor(TimeoutExecutor):
         self.retry_policy = retry_policy
 
     def execute(self, task: Task) -> Task:
+        return self._execute(task, uuid.uuid4().hex)
+
+    def execute_claimed(self, task: Task, owner: str) -> Task:
+        """Execute a task already claimed by a registered consumer."""
+        return self._execute(task, owner, claimed=task)
+
+    def _execute(self, task: Task, owner: str, claimed: Task | None = None) -> Task:
         with task._lock:
-            if task.status not in EXECUTABLE_STATUSES:
+            if claimed is None and task.status not in EXECUTABLE_STATUSES:
                 raise ValueError("只能领取待执行任务")
-            owner = uuid.uuid4().hex
-            claimed = self.store.claim(task, owner)
+            if claimed is None:
+                claimed = self.store.claim(task, owner)
             if claimed is None:
                 # A different engine owns this task or already committed it.
                 # Do not mirror RETRYING into this stale queue: only its owner enqueues.
@@ -363,7 +414,8 @@ class PersistentExecutor(TimeoutExecutor):
             task._retry_at = None
             task.result = None
             task.error = None
-            task.status = TaskStatus.RUNNING
+            if task.status is not TaskStatus.RUNNING:
+                task.status = TaskStatus.RUNNING
             task._events = list(claimed.events)
             try:
                 task.result = self._invoke(task)
