@@ -49,6 +49,20 @@
 | TimeoutExecutor | 同步执行单次尝试并施加超时上限的执行器 | 已实现 |
 | ConcurrentWorker | 固定大小线程池并发消费队列 | 已实现 |
 | TaskEngine | 装配已有原语并提供提交与启动的统一入口 | 已实现 |
+| DAGWorkflow / DAGNode / OutputRef | 可序列化 DAG 定义、依赖与上游输出引用 | 已实现 |
+| WorkflowOrchestrator | 在 TaskEngine 上方推进依赖、汇总状态与恢复编排 | 已实现 |
+
+## DAG 工作流
+
+项目支持“工作流编排模块 → TaskEngine → worker”的执行架构。
+`WorkflowOrchestrator` 根据 DAG 依赖放行任务，TaskEngine 提供任务与持久化边界，
+worker 执行业务及 AI 注册函数。节点支持并行、汇合、输出绑定、重试、超时、
+失败后代跳过和进程中断恢复。工作流定义与任务在 SQLite 中原子提交，
+数据库领取时检查依赖调度门，多个编排器和 worker 可以协作执行。
+
+使用示例、AI 接入与恢复规则见 [DAG 工作流文档](docs/dag_workflows.md)。
+独立集成测试位于 `tests/test_dag_scheduling_integration.py`、
+`tests/test_dag_recovery_integration.py` 和 `tests/test_dag_ai_integration.py`。
 
 ## 统一入口
 

@@ -106,7 +106,8 @@ class SQLiteTaskStore:
             columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
             for name, declaration in (("scheduled_at", "REAL"), ("retry_at", "REAL"),
                                       ("retry_config", "TEXT NOT NULL DEFAULT '{}'"),
-                                      ("worker_session", "TEXT")):
+                                      ("worker_session", "TEXT"),
+                                      ("workflow_blocked", "INTEGER NOT NULL DEFAULT 0")):
                 if name not in columns:
                     db.execute(f"ALTER TABLE tasks ADD COLUMN {name} {declaration}")
             # Old databases contain only a snapshot. Never invent earlier attempts.
@@ -121,6 +122,8 @@ class SQLiteTaskStore:
                                             "last_error": json.loads(row["last_error"]) if row["last_error"] is not None else None})
         from .worker_registry import WorkerRegistry
         self.workers = WorkerRegistry(self.path)
+        from .workflow_store import SQLiteWorkflowStore
+        self.workflows = SQLiteWorkflowStore(self)
 
     @contextmanager
     def _connection(self):
@@ -166,26 +169,36 @@ class SQLiteTaskStore:
             retry_limit = min(retry_limit, task.max_retries)
         definition = self._definition(task)
         with self._transaction() as db:
-            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
-            if row is not None:
-                if row["definition"] != definition:
-                    raise IdempotencyConflict(f"任务 {task.id!r} 的定义与已提交任务不同")
-                return self._decode(row, db)
-            if task.status is not TaskStatus.PENDING or task.attempt_count or task.retry_count:
-                raise ValueError("首次持久化提交只接受尚未执行的 PENDING 任务")
-            config = {} if retry_policy is None else dict(initial_delay=retry_policy.initial_delay,
-                backoff_factor=retry_policy.backoff_factor, max_delay=retry_policy.max_delay)
-            db.execute("INSERT INTO tasks(id, definition, status, retry_limit, retry_config, scheduled_at) VALUES(?,?,?,?,?,?)",
-                       (task.id, definition, TaskStatus.PENDING.value, retry_limit, _json(config), task.scheduled_at))
-            row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
-            self._append_event(db, row, TaskEventType.CREATED, timestamp=task.events[0].timestamp,
-                               details={"name": task.name})
-            self._append_event(db, row, TaskEventType.SUBMITTED,
-                               details={"retry_limit": retry_limit, "priority": task.priority,
-                                        "scheduled_at": task.scheduled_at})
-            events = self._read_events(db, task.id)
-        task._events = events
-        task._persisted = True
+            stored = self._submit(db, task, definition, retry_limit, retry_policy)
+            if stored is task:
+                events = self._read_events(db, task.id)
+        if stored is task:
+            task._events = events
+            task._persisted = True
+        return stored
+
+    def _submit(self, db, task: Task, definition: str, retry_limit: int,
+                retry_policy: RetryPolicy | None, *, workflow_blocked: bool = False) -> Task:
+        """Insert inside the caller's transaction (also used for atomic DAG submission)."""
+        if task.max_retries is not None:
+            retry_limit = min(retry_limit, task.max_retries)
+        row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+        if row is not None:
+            if row["definition"] != definition:
+                raise IdempotencyConflict(f"任务 {task.id!r} 的定义与已提交任务不同")
+            return self._decode(row, db)
+        if task.status is not TaskStatus.PENDING or task.attempt_count or task.retry_count:
+            raise ValueError("首次持久化提交只接受尚未执行的 PENDING 任务")
+        config = {} if retry_policy is None else dict(initial_delay=retry_policy.initial_delay,
+            backoff_factor=retry_policy.backoff_factor, max_delay=retry_policy.max_delay)
+        db.execute("INSERT INTO tasks(id, definition, status, retry_limit, retry_config, scheduled_at, workflow_blocked) VALUES(?,?,?,?,?,?,?)",
+                   (task.id, definition, TaskStatus.PENDING.value, retry_limit, _json(config), task.scheduled_at, int(workflow_blocked)))
+        row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
+        self._append_event(db, row, TaskEventType.CREATED, timestamp=task.events[0].timestamp,
+                           details={"name": task.name})
+        self._append_event(db, row, TaskEventType.SUBMITTED,
+                           details={"retry_limit": retry_limit, "priority": task.priority,
+                                    "scheduled_at": task.scheduled_at})
         return task
 
     @staticmethod
@@ -249,8 +262,13 @@ class SQLiteTaskStore:
     def pending(self) -> list[Task]:
         with self._connection() as db:
             db.execute("BEGIN")
-            rows = db.execute("SELECT * FROM tasks WHERE status IN ('PENDING','RETRYING') ORDER BY sequence").fetchall()
+            rows = db.execute("SELECT * FROM tasks WHERE workflow_blocked=0 AND status IN ('PENDING','RETRYING') ORDER BY sequence").fetchall()
             return [self._decode(row, db) for row in rows]
+
+    def is_dispatchable(self, task_id: str) -> bool:
+        with self._connection() as db:
+            row = db.execute('SELECT workflow_blocked FROM tasks WHERE id=?', (task_id,)).fetchone()
+            return row is not None and row['workflow_blocked'] == 0
 
     def claim(self, task: Task, owner: str, *, worker_session: str | None = None) -> Task | None:
         if task.status not in EXECUTABLE_STATUSES:
@@ -265,6 +283,7 @@ class SQLiteTaskStore:
             now = time.time()
             row = db.execute("""SELECT * FROM tasks
                 WHERE status IN ('PENDING','RETRYING')
+                AND workflow_blocked=0
                 AND (retry_at IS NULL OR retry_at<=?)
                 AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)
                 ORDER BY json_extract(definition, '$.priority') DESC, sequence LIMIT 1""",
@@ -277,6 +296,7 @@ class SQLiteTaskStore:
         changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?, worker_session=?,
             attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
             WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
+            AND workflow_blocked=0
             AND (retry_at IS NULL OR retry_at<=?)
             AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
             (owner, worker_session, task.id, task.status.value, task.attempt_count, task.retry_count,

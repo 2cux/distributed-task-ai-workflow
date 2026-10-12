@@ -26,8 +26,12 @@ from .persistence import StaleExecutionError
 from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
                               WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch, WorkerNotReady)
 from .reliable_worker import ReliableWorker, WorkerMonitor
+from .dag import DAGNode, DAGWorkflow, OutputRef, NodeStatus, WorkflowStatus, NodeRun, WorkflowRun
+from .workflow import WorkflowOrchestrator
 
 __all__ = [
+    "DAGNode", "DAGWorkflow", "OutputRef", "NodeStatus", "WorkflowStatus",
+    "NodeRun", "WorkflowRun", "WorkflowOrchestrator",
     "WorkerRegistry", "WorkerRecord", "WorkerSessionRecord", "WorkerRegistryError",
     "WorkerAlreadyActive", "WorkerSessionMismatch", "WorkerNotReady",
     "ReliableWorker", "WorkerMonitor", "StaleExecutionError",

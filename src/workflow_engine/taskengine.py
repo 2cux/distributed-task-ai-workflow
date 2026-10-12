@@ -26,6 +26,7 @@ from .task import TaskStatus
 from .events import TaskEvent
 
 if TYPE_CHECKING:
+    from .dag import DAGWorkflow, WorkflowRun
     from .worker_registry import WorkerRegistry
     from .reliable_worker import ReliableWorker
 
@@ -66,6 +67,7 @@ class TaskEngine:
         self._submitted_tasks: dict[str, Task] = {}
         self._retry_policy = retry_policy
         self._timeout_policy = timeout_policy
+        self._max_workers = max_workers
         if database_path is not None:
             if task_registry is None:
                 raise ValueError("持久化模式需要 task_registry")
@@ -112,7 +114,8 @@ class TaskEngine:
         with self._submission_lock:
             limit = self._retry_policy.limit_for(task) if self._retry_policy is not None else 0
             stored = self._store.submit(task, limit, retry_policy=self._retry_policy)
-            if stored.status in (TaskStatus.PENDING, TaskStatus.RETRYING) and not self._queue.contains(stored):
+            if (stored.status in (TaskStatus.PENDING, TaskStatus.RETRYING)
+                    and self._store.is_dispatchable(stored.id) and not self._queue.contains(stored)):
                 self._scheduler.submit(stored)
             return stored
 
@@ -121,6 +124,32 @@ class TaskEngine:
         if self._store is None:
             raise RuntimeError("get_task 需要持久化模式")
         return self._store.get(task_id)
+
+    @property
+    def persistent(self) -> bool:
+        return self._store is not None
+
+    @property
+    def max_workers(self) -> int:
+        return self._max_workers
+
+    def _workflow_store(self):
+        if self._store is None:
+            raise RuntimeError('workflow operations require persistent mode')
+        return self._store.workflows
+
+    def submit_workflow(self, workflow: DAGWorkflow) -> WorkflowRun:
+        """Atomically journal the DAG and its tasks; only ready roots are claimable."""
+        return self._workflow_store().submit(workflow, self._retry_policy)
+
+    def advance_workflow(self, workflow_id: str) -> WorkflowRun:
+        return self._workflow_store().advance(workflow_id)
+
+    def get_workflow(self, workflow_id: str) -> WorkflowRun | None:
+        return self._workflow_store().get(workflow_id)
+
+    def active_workflow_ids(self) -> list[str]:
+        return self._workflow_store().active_ids()
 
     @property
     def worker_registry(self) -> WorkerRegistry:
