@@ -21,6 +21,7 @@ class TaskEventType(str, Enum):
     RETRY_SCHEDULED = "RETRY_SCHEDULED"
     INTERRUPTED = "INTERRUPTED"
     RESTORED = "RESTORED"
+    MANUAL_RESOLUTION = "MANUAL_RESOLUTION"
 
 
 @dataclass(frozen=True)

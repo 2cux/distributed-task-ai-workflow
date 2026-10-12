@@ -51,6 +51,8 @@
 | TaskEngine | 装配已有原语并提供提交与启动的统一入口 | 已实现 |
 | DAGWorkflow / DAGNode / OutputRef | 可序列化 DAG 定义、依赖与上游输出引用 | 已实现 |
 | WorkflowOrchestrator | 在 TaskEngine 上方推进依赖、汇总状态与恢复编排 | 已实现 |
+| RecoverySystem | 独立恢复控制面，协调可信停止、任务接管、工作流修复及人工干预 | 已实现 |
+| RecoveryService / RemoteWorker | 带认证的中心 JSON RPC 与跨主机业务执行，SQLite 保留在中心本地盘 | 已实现 |
 
 ## DAG 工作流
 
@@ -179,8 +181,9 @@ pickle、不从数据库动态导入代码。注册名称应随业务版本区�
 - 每次新建持久化引擎都会按优先级及同级 FIFO 恢复 `PENDING` / `RETRYING`。
   `SUCCESS` / `FAILED` 保留供查询，不会自动重新执行。
 - 默认不接管 `RUNNING`，避免把另一个仍在运行的引擎误判为故障。确认共享该
-  数据库的所有旧 Worker 已停止后，可使用 `recover_interrupted=True`，或独立
-  调用 `SQLiteTaskStore.recover_interrupted()` 后创建引擎。
+  数据库的所有旧调用已停止后，没有注册 Worker 会话的旧任务可使用
+  `recover_interrupted=True`，或独立调用 `SQLiteTaskStore.recover_interrupted()`。
+  注册 Worker 持有的中断任务必须通过下文的分阶段恢复。
 - 中断的非幂等任务转为 `FAILED`，错误为 `UncertainExecutionError`，需核对实际
   业务结果；声明 `idempotent=True` 且有剩余重试预算的任务进入 `RETRYING`，
   消耗一次预算。重复恢复不会重复消耗预算。
@@ -191,8 +194,8 @@ pickle、不从数据库动态导入代码。注册名称应随业务版本区�
 - 持久化模式的软超时会等待旧调用真正结束后才提交失败或重试，防止业务调用
   重叠；因此函数不退出时 `start()` 也不会立即返回。需要硬超时应采用进程隔离。
 
-当前实现适用于共享本机 SQLite 文件的进程；多主机调度需后续增加服务器数据库
-和明确的 Worker 存活协调机制。
+同一主机的进程可共享本地 SQLite 文件。多主机 Worker 通过下文的中心 RPC 服务
+领取和提交任务，数据库及 WAL 文件保留在中心主机本地盘。
 
 ## 多 Worker 与可靠接管
 
@@ -205,6 +208,22 @@ pickle、不从数据库动态导入代码。注册名称应随业务版本区�
 非幂等或预算耗尽任务保留为结果不确定的失败。仅凭超时不会重放，软超时也会等待
 实际调用退出。使用示例、停止确认的可信边界及独立测试见
 [多 Worker 执行与分阶段恢复](docs/worker_registry.md)。
+
+## 独立故障恢复系统
+
+持久化模式通过 `engine.create_recovery_system(interval=1, stop_verifier=..., fence_after=0)`
+创建独立恢复控制面，显式 `start()` 后自动观察心跳、撤权、等待可信停止证明，再按
+持久化幂等声明和预算恢复中断任务，并协调 DAG 继续执行。多个协调器通过短事务
+共同工作，恢复动作、事故、暂停来源及人工决定在进程重启后保留。
+
+心跳超时只授权怀疑与撤权，不能授权重放；可信证明须确认确切旧调用已退出且不能
+继续产生外部副作用。无法安全自动恢复时，事故暂停对应任务和工作流，支持核对结果
+后补录成功、有限预算重试、接受失败，以及人工暂停/恢复。架构、API、跨主机部署
+边界与独立回归命令见 [故障恢复系统文档](docs/failure_recovery.md)。
+
+跨主机执行由 `engine.create_recovery_service(token, ...)` 和 `RemoteWorker` 提供带
+认证的 JSON RPC。远端仅执行业务及传输领取/结果，SQLite 留在中心本地盘；对外
+连接需要 TLS 或已受保护的隧道。中心数据库的复制与自动主备切换仍需部署层提供。
 
 四个独立测试类覆盖磁盘读写、重复提交与跨引擎竞争、子进程强制退出恢复，以及
 结果提交失败和软超时边界：`TaskPersistenceTests`、`PersistentIdempotencyTests`、

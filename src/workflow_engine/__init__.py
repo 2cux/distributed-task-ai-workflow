@@ -28,8 +28,13 @@ from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
 from .reliable_worker import ReliableWorker, WorkerMonitor
 from .dag import DAGNode, DAGWorkflow, OutputRef, NodeStatus, WorkflowStatus, NodeRun, WorkflowRun
 from .workflow import WorkflowOrchestrator
+from .recovery import RecoverySystem, RecoveryReport, RecoveryIncident, RecoveryConflict
+from .remote import (RecoveryService, RemoteWorker, RemoteTaskStore,
+                     RemoteTransportError, RemoteAuthenticationError)
 
 __all__ = [
+    "RecoverySystem", "RecoveryReport", "RecoveryIncident", "RecoveryConflict",
+    "RecoveryService", "RemoteWorker", "RemoteTaskStore", "RemoteTransportError", "RemoteAuthenticationError",
     "DAGNode", "DAGWorkflow", "OutputRef", "NodeStatus", "WorkflowStatus",
     "NodeRun", "WorkflowRun", "WorkflowOrchestrator",
     "WorkerRegistry", "WorkerRecord", "WorkerSessionRecord", "WorkerRegistryError",

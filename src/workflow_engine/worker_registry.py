@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 import sqlite3
+import socket
 import time
 from collections.abc import Callable
 from uuid import uuid4
@@ -51,6 +52,7 @@ class WorkerSessionRecord:
     heartbeat_timeout: float
     stopped_evidence: str | None
     stop_requested: int = 0
+    host_id: str = 'legacy'
 
 
 class WorkerRegistry:
@@ -95,6 +97,9 @@ class WorkerRegistry:
                 timestamp REAL NOT NULL,
                 reason TEXT NOT NULL
             )""")
+        with self._transaction() as db:
+            if 'host_id' not in {row[1] for row in db.execute('PRAGMA table_info(worker_sessions)')}:
+                db.execute("ALTER TABLE worker_sessions ADD COLUMN host_id TEXT NOT NULL DEFAULT 'legacy'")
         # Upgrade PR #1 databases without replacing their worker identity table.
         with self._transaction() as db:
             db.execute("""INSERT OR IGNORE INTO worker_sessions
@@ -139,12 +144,14 @@ class WorkerRegistry:
     def _record(row: sqlite3.Row) -> WorkerRecord:
         return WorkerRecord(**dict(row))
 
-    def register(self, worker_id: str, *, heartbeat_timeout: float = 30) -> WorkerRecord:
+    def register(self, worker_id: str, *, heartbeat_timeout: float = 30,
+                 host_id: str | None = None) -> WorkerRecord:
         """Start a session; an ACTIVE ID must be explicitly stopped first.
 
         Do not infer stop or safety to resume tasks from a missed heartbeat.
         """
         self._id(worker_id, "worker_id")
+        host_id = socket.gethostname() if host_id is None else self._id(host_id, 'host_id')
         self._seconds(heartbeat_timeout, "heartbeat_timeout")
         now = self._now()
         session_id = uuid4().hex
@@ -162,9 +169,9 @@ class WorkerRegistry:
                     (session_id, now, now, worker_id))
             row = db.execute("SELECT * FROM worker_registry WHERE worker_id=?", (worker_id,)).fetchone()
             db.execute("""INSERT INTO worker_sessions
-                (session_id,worker_id,state,last_heartbeat_at,heartbeat_timeout,stopped_evidence)
-                VALUES (?,?,'ACTIVE',?,?,NULL)""",
-                       (session_id, worker_id, now, heartbeat_timeout))
+                (session_id,worker_id,state,last_heartbeat_at,heartbeat_timeout,stopped_evidence,host_id)
+                VALUES (?,?,'ACTIVE',?,?,NULL,?)""",
+                       (session_id, worker_id, now, heartbeat_timeout, host_id))
             self._event(db, session_id, "ACTIVE", "registered")
         return self._record(row)
 

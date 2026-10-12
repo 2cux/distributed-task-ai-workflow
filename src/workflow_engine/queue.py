@@ -124,6 +124,31 @@ class TaskQueue:
         with self._tasks_ready:
             self._tasks_ready.notify_all()
 
+    def _refresh_persistent(self, tasks: list[Task]) -> None:
+        """Refresh a durable batch before starting its consumer.
+
+        Keep caller-observed objects when their attempt version is unchanged;
+        replace stale attempts and remove durable holds, including delayed ones.
+        Registered continuous workers claim directly from storage instead.
+        """
+        with self._tasks_ready:
+            existing = {entry[2].id: entry[2] for entry in self._tasks}
+            existing.update({entry[2].id: entry[2] for _, _, entry in self._delayed})
+            self._tasks.clear()
+            self._delayed.clear()
+            self._queued_ids.clear()
+            for task in tasks:
+                old = existing.get(task.id)
+                if old is not None and (old.status, old.attempt_count, old.retry_count, old.retry_at) == (
+                        task.status, task.attempt_count, task.retry_count, task.retry_at):
+                    with old._lock:
+                        for field in ('name', 'callable', 'args', 'kwargs', 'priority',
+                                      'max_retries', 'timeout', 'idempotent', 'scheduled_at'):
+                            setattr(old, field, getattr(task, field))
+                    task = old
+                self.enqueue(task)
+            self._tasks_ready.notify_all()
+
     def _dequeue_locked(self) -> Task | None:
         self._promote_due_locked()
         if not self._tasks:

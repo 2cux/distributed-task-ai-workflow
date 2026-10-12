@@ -159,14 +159,29 @@ class TaskEngine:
         return self._store.workers
 
     def create_worker(self, worker_id: str, *, heartbeat_interval: float = 1,
-                      heartbeat_timeout: float = 10, poll_interval: float = 0.05) -> ReliableWorker:
+                      heartbeat_timeout: float = 10, poll_interval: float = 0.05,
+                      host_id: str | None = None) -> ReliableWorker:
         """Create a registered continuous consumer; call its start/shutdown methods."""
         if self._store is None:
             raise RuntimeError('create_worker 需要持久化模式')
         from .reliable_worker import ReliableWorker
         return ReliableWorker(self._store, worker_id, heartbeat_interval=heartbeat_interval,
                               heartbeat_timeout=heartbeat_timeout, poll_interval=poll_interval,
-                              timeout_policy=self._timeout_policy)
+                              timeout_policy=self._timeout_policy, host_id=host_id)
+
+    def create_recovery_system(self, **options):
+        """Create the independent durable recovery control plane (start explicitly)."""
+        if self._store is None:
+            raise RuntimeError('recovery system requires persistent mode')
+        from .recovery import RecoverySystem
+        return RecoverySystem(self._store, **options)
+
+    def create_recovery_service(self, token: str, **options):
+        """Create the authenticated central endpoint for workers on remote hosts."""
+        if self._store is None:
+            raise RuntimeError('recovery service requires persistent mode')
+        from .remote import RecoveryService
+        return RecoveryService(self._store, token, **options)
 
     def recover_worker(self, session_id: str) -> list[Task]:
         if self._store is None:
@@ -189,6 +204,11 @@ class TaskEngine:
 
     def start(self) -> list[Task]:
         """处理当前已提交的任务，并返回每一次尝试的任务对象。"""
+        if self._store is not None:
+            # Include recoveries/dispatches committed by another coordinator
+            # since construction; atomic claim still arbitrates stale queues.
+            with self._submission_lock:
+                self._queue._refresh_persistent(self._store.pending())
         return self._scheduler.start()
 
     @property

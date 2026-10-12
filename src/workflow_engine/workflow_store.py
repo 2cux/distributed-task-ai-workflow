@@ -68,6 +68,10 @@ class SQLiteWorkflowStore:
         run = db.execute("SELECT * FROM workflow_runs WHERE id=?", (workflow_id,)).fetchone()
         if run is None:
             raise KeyError(workflow_id)
+        if db.execute("SELECT 1 FROM recovery_holds WHERE scope='workflow' AND target_id=?",
+                      (workflow_id,)).fetchone():
+            db.execute("UPDATE workflow_runs SET status='PAUSED' WHERE id=?", (workflow_id,))
+            return self._snapshot(db, db.execute('SELECT * FROM workflow_runs WHERE id=?', (workflow_id,)).fetchone())
         workflow = DAGWorkflow.from_dict(json.loads(run['definition']))
         rows = {row['node_id']: row for row in db.execute(
             """SELECT n.*, t.status AS task_status, t.result, t.definition AS task_definition,
@@ -150,4 +154,4 @@ class SQLiteWorkflowStore:
     def active_ids(self) -> list[str]:
         with self.tasks._connection() as db:
             return [row['id'] for row in db.execute(
-                "SELECT id FROM workflow_runs WHERE status IN ('PENDING','RUNNING') ORDER BY rowid")]
+                "SELECT id FROM workflow_runs WHERE status IN ('PENDING','RUNNING','PAUSED') ORDER BY rowid")]

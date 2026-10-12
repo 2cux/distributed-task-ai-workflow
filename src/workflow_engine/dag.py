@@ -22,6 +22,7 @@ class WorkflowStatus(str, Enum):
     RUNNING = "RUNNING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+    PAUSED = "PAUSED"
 
 
 class NodeStatus(str, Enum):

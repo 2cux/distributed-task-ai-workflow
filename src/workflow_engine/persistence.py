@@ -124,6 +124,8 @@ class SQLiteTaskStore:
         self.workers = WorkerRegistry(self.path)
         from .workflow_store import SQLiteWorkflowStore
         self.workflows = SQLiteWorkflowStore(self)
+        from .recovery import RecoveryJournal
+        RecoveryJournal(self)
 
     @contextmanager
     def _connection(self):
@@ -237,6 +239,10 @@ class SQLiteTaskStore:
         except KeyError as error:
             raise PersistenceError(f"恢复任务缺少注册函数 {handler!r}") from error
         definition["args"] = tuple(definition["args"])
+        if definition['max_retries'] is not None:
+            # Operator grants change the effective budget, never the immutable
+            # submitted definition used for idempotency comparisons.
+            definition['max_retries'] = max(definition['max_retries'], row['retry_limit'])
         task = Task(id=row["id"], callable=func, status=TaskStatus(row["status"]),
                     retry_count=row["retry_count"], **definition)
         task._attempt_count = row["attempt_count"]
@@ -260,14 +266,19 @@ class SQLiteTaskStore:
             return None if row is None else self._decode(row, db)
 
     def pending(self) -> list[Task]:
+        from .recovery import CLAIM_GUARD
         with self._connection() as db:
             db.execute("BEGIN")
-            rows = db.execute("SELECT * FROM tasks WHERE workflow_blocked=0 AND status IN ('PENDING','RETRYING') ORDER BY sequence").fetchall()
+            rows = db.execute(f"""SELECT * FROM tasks WHERE workflow_blocked=0 AND {CLAIM_GUARD}
+                AND status IN ('PENDING','RETRYING')
+                AND json_extract(definition,'$.handler') IN (SELECT value FROM json_each(?))
+                ORDER BY sequence""", (_json(list(self.registry)),)).fetchall()
             return [self._decode(row, db) for row in rows]
 
     def is_dispatchable(self, task_id: str) -> bool:
+        from .recovery import CLAIM_GUARD
         with self._connection() as db:
-            row = db.execute('SELECT workflow_blocked FROM tasks WHERE id=?', (task_id,)).fetchone()
+            row = db.execute(f'SELECT workflow_blocked FROM tasks WHERE id=? AND {CLAIM_GUARD}', (task_id,)).fetchone()
             return row is not None and row['workflow_blocked'] == 0
 
     def claim(self, task: Task, owner: str, *, worker_session: str | None = None) -> Task | None:
@@ -278,25 +289,30 @@ class SQLiteTaskStore:
 
     def claim_next(self, worker_session: str, owner: str) -> Task | None:
         """Select and claim one due task atomically across all consumer processes."""
+        from .recovery import CLAIM_GUARD
         with self._transaction() as db:
             self.workers._require_claimable(db, worker_session)
             now = time.time()
-            row = db.execute("""SELECT * FROM tasks
+            row = db.execute(f"""SELECT * FROM tasks
                 WHERE status IN ('PENDING','RETRYING')
                 AND workflow_blocked=0
+                AND {CLAIM_GUARD}
+                AND json_extract(definition,'$.handler') IN (SELECT value FROM json_each(?))
                 AND (retry_at IS NULL OR retry_at<=?)
                 AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)
                 ORDER BY json_extract(definition, '$.priority') DESC, sequence LIMIT 1""",
-                (now, now)).fetchone()
+                (_json(list(self.registry)), now, now)).fetchone()
             return None if row is None else self._claim(db, self._decode(row, db), owner, worker_session)
 
     def _claim(self, db, task: Task, owner: str, worker_session: str | None) -> Task | None:
+        from .recovery import CLAIM_GUARD
         if worker_session is not None:
             self.workers._require_claimable(db, worker_session)
-        changed = db.execute("""UPDATE tasks SET status='RUNNING', owner=?, worker_session=?,
+        changed = db.execute(f"""UPDATE tasks SET status='RUNNING', owner=?, worker_session=?,
             attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
             WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
             AND workflow_blocked=0
+            AND {CLAIM_GUARD}
             AND (retry_at IS NULL OR retry_at<=?)
             AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
             (owner, worker_session, task.id, task.status.value, task.attempt_count, task.retry_count,
@@ -383,6 +399,8 @@ class SQLiteTaskStore:
                 self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
                                    details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"],
                                             "retry_delay": task._retry_delay, "retry_at": task.retry_at})
+                from .recovery import RecoveryJournal
+                RecoveryJournal.retry_scheduled(self, db, task.id, task.attempt_count)
             task._events = self._read_events(db, task.id)
             recovered.append(task)
         return recovered

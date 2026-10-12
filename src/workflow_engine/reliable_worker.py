@@ -76,7 +76,8 @@ class ReliableWorker:
 
     def __init__(self, store: SQLiteTaskStore, worker_id: str, *,
                  heartbeat_interval: float = 1, heartbeat_timeout: float = 10,
-                 poll_interval: float = 0.05, timeout_policy: TimeoutPolicy | None = None) -> None:
+                 poll_interval: float = 0.05, timeout_policy: TimeoutPolicy | None = None,
+                 host_id: str | None = None) -> None:
         if not isinstance(store, SQLiteTaskStore):
             raise TypeError('store 必须是 SQLiteTaskStore')
         self.registry = store.workers
@@ -88,6 +89,9 @@ class ReliableWorker:
             raise ValueError('heartbeat_interval 必须小于 heartbeat_timeout')
         self.store = store
         self.worker_id = worker_id
+        self.host_id = host_id
+        if host_id is not None:
+            self.registry._id(host_id, 'host_id')
         self.heartbeat_interval = heartbeat_interval
         self.heartbeat_timeout = heartbeat_timeout
         self.poll_interval = poll_interval
@@ -116,7 +120,8 @@ class ReliableWorker:
         with self._lock:
             if self._status is not WorkerStatus.CREATED:
                 raise RuntimeError('ReliableWorker 只能启动一次')
-            record = self.registry.register(self.worker_id, heartbeat_timeout=self.heartbeat_timeout)
+            record = self.registry.register(self.worker_id, heartbeat_timeout=self.heartbeat_timeout,
+                                            host_id=self.host_id)
             self._session_id = record.session_id
             self._status = WorkerStatus.RUNNING
             self._heartbeat_thread = Thread(target=self._heartbeats, name=f'heartbeat-{self.worker_id}', daemon=True)
