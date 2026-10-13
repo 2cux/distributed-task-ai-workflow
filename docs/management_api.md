@@ -251,6 +251,10 @@ python tools/benchmark_management.py --workflows 100 --reads 300 --concurrency 8
   --output docs/management-benchmark.json
 ```
 
+可追加 `--repeat 3 --warmup 1 --markdown docs/management-benchmark.md`，顺序运行
+预热和测量轮，保留逐轮原始数据并生成统计报告。三组 Benchmark 工具独立测试、
+临时库位置和汇总规则见 [Benchmark 使用与验证](benchmarks.md)。
+
 `--deadline` 限制请求批次结束后等待执行完成的总计时截止点，默认 60 秒；HTTP
 单次客户端超时上限 10 秒。测试里的延迟门槛是宽松回归防线，不能当成生产 SLO。
 容量数据应结合数据库大小、磁盘、业务延迟和机器配置判断。工具使用服务默认的

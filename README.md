@@ -77,6 +77,20 @@ worker 执行业务及 AI 注册函数。节点支持并行、汇合、输出绑
 接入示例、权限与恢复边界、监控配置、四组独立测试和压测工具见
 [工作流管理 API 与可观测系统](docs/management_api.md)。
 
+## 可重复运行的 Benchmark
+
+`tools/benchmark_management.py` 使用独立临时 SQLite 库、loopback HTTP 服务和专用
+Worker，测量混合请求吞吐、P50/P95/P99 与两节点 DAG 完成时间，并校验实际结果和
+逐任务执行次数。支持预热、多轮测量、JSON 原始结果和 Markdown 汇总报告：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python tools/benchmark_management.py --repeat 3 --warmup 1 `
+  --output docs/benchmark-results.json --markdown docs/benchmark-results.md
+```
+
+运行边界、报告语义与三组独立测试见 [Benchmark 使用与验证](docs/benchmarks.md)。
+
 ## 统一入口
 
 `TaskEngine` 是面向调用方的系统边界：它只装配 `TaskQueue`、执行器、Worker、
