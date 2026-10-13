@@ -7,10 +7,29 @@ from pathlib import Path
 import subprocess
 import sys
 
-from management_test_support import ManagementTestCase
+from management_test_support import ADMIN, READER, ManagementTestCase
 
 
 class ManagementStabilityTests(ManagementTestCase):
+    def test_rejected_uploads_deliver_errors_without_connection_reset(self):
+        self.start_service(max_request_bytes=1024)
+        cases = [
+            (401, 'wrong-token', {}, b' ' * 65536),
+            (403, READER, {}, b' ' * 65536),
+            (413, ADMIN, {}, b' ' * 65536),
+            (415, ADMIN, {'Content-Type': 'text/plain'}, b' ' * 1024),
+            (400, ADMIN, {'Transfer-Encoding': 'chunked'}, b' ' * 1024),
+        ]
+        for _ in range(8):
+            for expected, token, headers, body in cases:
+                with self.subTest(expected=expected):
+                    status, payload, _ = self.call('/api/v1/workflows', raw=body,
+                                                   token=token, headers=headers)
+                    self.assertEqual(status, expected, payload)
+                    self.assertIn('error', payload)
+        self.assertEqual(self.call('/api/v1/workflows')[1]['items'], [])
+        self.assertEqual(self.call('/api/v1/overview')[1]['attempts'], 0)
+
     def test_restart_keeps_pause_events_results_and_idempotency(self):
         self.start_service()
         definition = self.workflow('restart')

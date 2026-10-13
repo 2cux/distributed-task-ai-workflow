@@ -8,7 +8,8 @@ from uuid import uuid4
 from .lifecycle import WorkerStatus
 from .persistence import PersistentExecutor, SQLiteTaskStore, StaleExecutionError
 from .timeout import TimeoutPolicy
-from .worker_registry import WorkerNotReady, WorkerRegistry, WorkerSessionMismatch
+from .worker_registry import (WorkerNotReady, WorkerRegistry, WorkerSessionMismatch,
+                              WorkerStopRequested)
 
 
 class WorkerMonitor:
@@ -164,6 +165,8 @@ class ReliableWorker:
                 owner = uuid4().hex
                 try:
                     task = self.store.claim_next(self._session_id, owner)
+                except WorkerStopRequested:
+                    break
                 except WorkerNotReady:
                     self._stop.wait(self.poll_interval)
                     continue

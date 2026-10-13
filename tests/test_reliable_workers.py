@@ -142,6 +142,31 @@ class ReliableWorkerTests(unittest.TestCase):
         current = engine.get_task(task.id)
         self.assertEqual((current.attempt_count, current.retry_count, current.result), (2, 1, 2))
 
+    def test_control_plane_stop_drains_without_error_or_claiming_pending_task(self):
+        entered, release = Event(), Event()
+
+        def handler():
+            entered.set()
+            release.wait(5)
+            return 42
+
+        engine = self.engine(handler)
+        first = engine.submit(Task('running', handler))
+        worker = self.worker(engine, 'controlled-stop')
+        self.addCleanup(release.set)
+        self.assertTrue(entered.wait(2))
+        pending = engine.submit(Task('pending', handler))
+        engine.worker_registry.request_stop(worker.worker_id, worker.session_id)
+        self.assertFalse(worker.join(.01))
+        self.assertEqual(engine.get_task(first.id).status, TaskStatus.RUNNING)
+        release.set()
+        self.assertTrue(worker.join(3))
+        self.assertIsNone(worker.last_error)
+        self.assertEqual(engine.get_task(first.id).result, 42)
+        self.assertEqual(engine.get_task(pending.id).attempt_count, 0)
+        self.assertEqual(engine.get_task(pending.id).status, TaskStatus.PENDING)
+        self.assertEqual(engine.worker_registry.get_session(worker.session_id).state, 'STOPPED')
+
     def test_standalone_monitor_only_marks_suspicion(self):
         engine = self.engine()
         record = engine.worker_registry.register('abandoned', heartbeat_timeout=0.01)

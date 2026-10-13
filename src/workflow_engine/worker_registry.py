@@ -29,6 +29,10 @@ class WorkerSessionMismatch(WorkerRegistryError):
     """A missing or superseded session attempted to change registry state."""
 
 
+class WorkerStopRequested(WorkerSessionMismatch):
+    """The current session was asked to drain normally, rather than fenced."""
+
+
 class WorkerNotReady(WorkerRegistryError):
     """A suspected or overdue worker may not claim new work until heartbeat resumes."""
 
@@ -276,6 +280,8 @@ class WorkerRegistry:
         if row['state'] == 'SUSPECT' or (row['state'] == 'ACTIVE' and
                 self._now() - row['last_heartbeat_at'] > row['heartbeat_timeout']):
             raise WorkerNotReady("心跳过期或疑似失联，暂停领取")
+        if row['state'] == 'STOPPING' and row['stop_requested']:
+            raise WorkerStopRequested("Worker 收到优雅停止请求")
         if row['state'] != 'ACTIVE':
             raise WorkerSessionMismatch("Worker 已停止领取或已撤权")
 

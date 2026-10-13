@@ -1,0 +1,75 @@
+........................................................................ [ 19%]
+.................................F...................................... [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.........                                                                [100%]
+================================== FAILURES ===================================
+_ ManagementAPIContractTests.test_invalid_definitions_and_protocol_do_not_partially_submit _
+
+self = <test_management_api.ManagementAPIContractTests testMethod=test_invalid_definitions_and_protocol_do_not_partially_submit>
+
+    def test_invalid_definitions_and_protocol_do_not_partially_submit(self):
+        self.start_service(max_request_bytes=1024)
+        bad = [b'null', b'[]', b'{', b'{"id":"a","id":"b","nodes":[]}',
+               b'{"id":"x","nodes":[],"number":NaN}', b'{"id":"x","nodes":[],"number":1e999}']
+        for raw in bad:
+            self.assertEqual(self.call('/api/v1/workflows', raw=raw)[0], 400)
+        definitions = [dict(id='bad', nodes=[dict(id='n', handler='missing')]),
+                       dict(id='bad', nodes=[dict(id='n', handler='abs', args='oops')]),
+                       dict(id='bad', nodes=[dict(id='n', handler='abs', depends_on=['n'])]),
+                       dict(id='bad', nodes=[dict(id='n', handler='abs', timeout=True)]),
+                       dict(id='bad', nodes=[dict(id='n', handler='abs', kwargs={'x': 1}, inputs={'x': {'node_id': 'n'}})]),
+                       dict(id='bad', nodes=[dict(id='n', handler='abs', args=[-1]), dict(id='n', handler='abs')])]
+        for definition in definitions:
+            self.assertEqual(self.call('/api/v1/workflows', definition)[0], 400, definition)
+        self.assertEqual(self.call('/api/v1/workflows', raw=b' ' * 1025)[0], 413)
+>       self.assertEqual(self.call('/api/v1/workflows', self.workflow(), headers={'Content-Type': 'text/plain'})[0], 415)
+
+tests\test_management_api.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\management_test_support.py:44: in call
+    response = opener.open(request, timeout=timeout)
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py:515: in open
+    response = self._open(req, data)
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py:532: in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py:492: in _call_chain
+    result = func(*args)
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py:1373: in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py:1348: in do_open
+    r = h.getresponse()
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\http\client.py:1430: in getresponse
+    response.begin()
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\http\client.py:331: in begin
+    version, status, reason = self._read_status()
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\http\client.py:292: in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <socket.SocketIO object at 0x000002A8893AE530>
+b = <memory at 0x000002A887D14640>
+
+    def readinto(self, b):
+        """Read up to len(b) bytes into the writable buffer *b* and return
+        the number of bytes read.  If the socket is non-blocking and no bytes
+        are available, None is returned.
+    
+        If *b* is non-empty, a 0 return value indicates that the connection
+        was shutdown at the other end.
+        """
+        self._checkClosed()
+        self._checkReadable()
+        if self._timeout_occurred:
+            raise OSError("cannot read from timed out object")
+        while True:
+            try:
+>               return self._sock.recv_into(b)
+E               ConnectionAbortedError: [WinError 10053] ��������е�������ֹ��һ���ѽ��������ӡ�
+
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\socket.py:720: ConnectionAbortedError
+- generated xml file: D:\project\distributed-task-ai-workflow\docs\e2e-validation-2026-10-13-full.xml -
+=========================== short test summary info ===========================
+FAILED tests/test_management_api.py::ManagementAPIContractTests::test_invalid_definitions_and_protocol_do_not_partially_submit
+1 failed, 368 passed in 65.13s (0:01:05)

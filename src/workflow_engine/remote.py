@@ -29,7 +29,7 @@ from .task import Task, TaskStatus
 from .timeout import TaskTimeoutError
 from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
                               WorkerRegistryError, WorkerAlreadyActive,
-                              WorkerSessionMismatch, WorkerNotReady)
+                              WorkerSessionMismatch, WorkerNotReady, WorkerStopRequested)
 
 
 class RemoteTransportError(PersistenceError):
@@ -41,7 +41,7 @@ class RemoteAuthenticationError(RemoteTransportError):
 
 
 _ERRORS = {cls.__name__: cls for cls in (PersistenceError, StaleExecutionError,
-    WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch, WorkerNotReady,
+    WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch, WorkerNotReady, WorkerStopRequested,
     ValueError, TypeError)}
 
 

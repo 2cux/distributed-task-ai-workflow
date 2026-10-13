@@ -1,0 +1,154 @@
+"""Public management HTTP -> DAG -> remote processes -> durable HTTP readback."""
+
+from contextlib import closing
+from datetime import datetime
+import os
+from pathlib import Path
+import sqlite3
+import subprocess
+import sys
+import time
+
+from management_test_support import ADMIN, READER, ManagementTestCase
+from test_end_to_end_remote_workflow import WORKER_SCRIPT
+from workflow_engine import RetryPolicy, TaskEngine
+
+
+class ManagementRemoteEndToEndTests(ManagementTestCase):
+    def test_public_submission_parallel_retry_pause_events_stop_and_restart(self):
+        def central_only(*args, **kwargs):
+            raise AssertionError('business code must run in remote processes')
+
+        registry = {name: (lambda *a, **kw: central_only(*a, **kw))
+                    for name in ('retrieve', 'model', 'join', 'validate')}
+        control = self.path.parent
+        root = Path(__file__).resolve().parents[1]
+        self.engine = TaskEngine(database_path=self.path, task_registry=registry,
+                                 retry_policy=RetryPolicy(1, initial_delay=.05))
+        self.service = self.engine.create_management_service(
+            ADMIN, readonly_token=READER, poll_interval=.02).start()
+        self.addCleanup(self.service.shutdown, 5)
+        rpc = self.engine.create_recovery_service('e2e-rpc-token').start()
+        self.addCleanup(rpc.shutdown, 5)
+        processes = []
+
+        def drain_processes():
+            (control / 'done').touch()
+            for process in processes:
+                if process.poll() is None:
+                    try:
+                        process.communicate(timeout=7)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=5)
+
+        self.addCleanup(drain_processes)
+        self.wait_for(lambda: self.call('/health/ready', token=None)[0] == 200)
+        endpoint = '/api/v1/workflows/management-remote-e2e'
+        definition = dict(id='management-remote-e2e', nodes=[
+            dict(id='retrieve', handler='retrieve', kwargs={'query': 'e2e'},
+                 scheduled_at=time.time() + .2),
+            dict(id='a', handler='model', kwargs={'name': 'a'}, idempotent=True,
+                 inputs={'context': {'node_id': 'retrieve', 'path': ['context']}}, timeout=12),
+            dict(id='b', handler='model', kwargs={'name': 'b'},
+                 inputs={'context': {'node_id': 'retrieve', 'path': ['context']}}, timeout=12),
+            dict(id='join', handler='join',
+                 inputs={'left': {'node_id': 'a'}, 'right': {'node_id': 'b'}}),
+            dict(id='validate', handler='validate', inputs={'combined': {'node_id': 'join'}}),
+        ])
+        self.assertEqual(self.call('/api/v1/workflows', definition, token=READER)[0], 403)
+        self.assertEqual(self.call('/api/v1/workflows', definition, token='wrong-token')[0], 401)
+        self.assertEqual(self.call('/api/v1/workflows')[1]['items'], [])
+        status, accepted, _ = self.call('/api/v1/workflows', definition)
+        self.assertEqual(status, 202, accepted)
+        self.assertEqual(self.call('/api/v1/workflows', definition)[1], accepted)
+        task_ids = {node['id']: node['task_id'] for node in accepted['nodes']}
+        operator = dict(operator='e2e-supervisor', reason='verify remote dispatch gate')
+        self.assertEqual(self.call(endpoint + '/pause', operator)[1]['status'], 'PAUSED')
+        before = self.call(endpoint + '/events?limit=100', token=READER)[1]['items']
+
+        for index in range(2):
+            processes.append(subprocess.Popen(
+                [sys.executable, '-c', WORKER_SCRIPT, rpc.url, 'e2e-rpc-token',
+                 str(control), f'management-remote-{index}'],
+                env={**os.environ, 'PYTHONPATH': str(root / 'src')},
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+        self.wait_for(lambda: len(self.call('/api/v1/sessions')[1]['items']) == 2)
+        self.assertEqual(self.call('/api/v1/overview')[1]['attempts'], 0)
+        self.assertEqual(self.call(endpoint)[1]['status'], 'PAUSED')
+        self.assertEqual(self.call(endpoint + '/resume', operator)[0], 200)
+
+        def completed():
+            for process in processes:
+                if process.poll() is not None:
+                    _, error = process.communicate(timeout=5)
+                    self.fail(error.decode(errors='replace'))
+            return self.call(endpoint, token=READER)[1]['status'] == 'SUCCESS'
+
+        self.wait_for(completed, timeout=25)
+        result = self.call(endpoint, token=READER)[1]
+        nodes = {node['id']: node for node in result['nodes']}
+        final = nodes['validate']['result']
+        self.assertTrue(final['valid'])
+        self.assertEqual(final['answers'], ['E2E-a', 'E2E-b'])
+        pids = {process.pid for process in processes}
+        self.assertLessEqual(set(final['pids']), pids)
+        self.assertEqual({int((control / name).read_text()) for name in ('a', 'b')}, pids)
+        for name, node in nodes.items():
+            self.assertEqual(node['status'], 'SUCCESS')
+            self.assertEqual(node['task_id'], task_ids[name])
+            self.assertEqual(node['attempt_count'], 2 if name == 'a' else 1)
+            self.assertEqual(node['retry_count'], 1 if name == 'a' else 0)
+            task = self.call('/api/v1/tasks/' + node['task_id'], token=READER)[1]
+            self.assertEqual(task['result'], node['result'])
+            self.assertEqual(task['attempt_count'], node['attempt_count'])
+
+        whole = self.call(endpoint + '/events?limit=100', token=READER)[1]['items']
+        after = self.call(endpoint + '/events?limit=100&cursor=' + str(before[-1]['cursor']))[1]['items']
+        self.assertEqual(before + after, whole)
+        self.assertEqual(len({event['cursor'] for event in whole}), len(whole))
+        retried = [event for event in whole if event['node_id'] == 'a']
+        self.assertEqual([event['event_type'] for event in retried], [
+            'CREATED', 'SUBMITTED', 'STARTED', 'FAILED', 'RETRY_SCHEDULED', 'STARTED', 'SUCCEEDED'])
+        self.assertEqual(retried[4]['details']['retry_delay'], .05)
+        self.assertGreaterEqual(datetime.fromisoformat(retried[5]['timestamp']).timestamp(),
+                                retried[4]['details']['retry_at'])
+        overview = self.call('/api/v1/overview', token=READER)[1]
+        self.assertEqual((overview['attempts'], overview['retries'], overview['open_incidents']), (6, 1, 0))
+        metrics = self.call('/metrics', token=READER)[1]
+        self.assertIn('workflow_engine_attempts 6\n', metrics)
+        self.assertIn('workflow_engine_retries 1\n', metrics)
+
+        sessions = self.call('/api/v1/sessions')[1]['items']
+        for session in sessions:
+            self.assertEqual(self.call('/api/v1/sessions/' + session['session_id'] + '/stop', operator)[0], 202)
+        self.wait_for(lambda: all(session['state'] == 'STOPPED'
+                      for session in self.call('/api/v1/sessions')[1]['items']))
+        (control / 'done').touch()
+        for process in processes:
+            _, error = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 0, error.decode(errors='replace'))
+        audit = self.call('/api/v1/audit?limit=100')[1]['items']
+        self.assertEqual([event['action'] for event in audit], [
+            'WORKFLOW_PAUSED', 'WORKFLOW_RESUMED', 'WORKER_STOP_REQUESTED', 'WORKER_STOP_REQUESTED'])
+        self.assertTrue(rpc.shutdown(5))
+        self.assertTrue(self.service.shutdown(5))
+
+        self.start_service(registry)
+        self.assertEqual(self.call(endpoint, token=READER)[1], result)
+        self.assertEqual(self.call(endpoint + '/events?limit=100')[1]['items'], whole)
+        self.assertEqual(self.call('/api/v1/audit?limit=100')[1]['items'], audit)
+        self.assertEqual(self.call('/api/v1/workflows', definition)[1], result)
+        self.assertEqual(self.call('/api/v1/overview')[1]['attempts'], 6)
+        self.assertEqual(len(self.call('/api/v1/tasks')[1]['items']), 5)
+        self.assertEqual(self.call('/api/v1/incidents?status=OPEN')[1]['items'], [])
+        self.assertEqual(self.engine.start(), [])
+        self.assertTrue(self.service.shutdown(5))
+        with closing(sqlite3.connect(self.path)) as database:
+            self.assertEqual(database.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+            self.assertEqual(database.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

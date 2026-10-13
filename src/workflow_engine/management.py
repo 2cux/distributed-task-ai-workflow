@@ -91,6 +91,20 @@ def _reject_constant(value):
     raise ValueError('nonfinite JSON')
 
 
+def _drain_rejected_connection(request):
+    # An unread upload can cause TCP reset on Windows and hide the error response.
+    # Let the client read EOF first, then discard bytes for at most 100 ms.
+    try:
+        request.shutdown(socket.SHUT_WR)
+        deadline = time.monotonic() + .1
+        while time.monotonic() < deadline:
+            request.settimeout(max(.001, deadline - time.monotonic()))
+            if not request.recv(65536):
+                break
+    except OSError:
+        pass
+
+
 class _BoundedServer(ThreadingHTTPServer):
     daemon_threads = True
     # Windows SO_REUSEADDR can permit another process to steal the port.
@@ -118,15 +132,7 @@ class _BoundedServer(ThreadingHTTPServer):
                                 b'Connection: close\r\nRetry-After: 1\r\nX-Request-ID: ' + request_id.encode() +
                                 b'\r\nContent-Length: ' +
                                 str(len(raw)).encode() + b'\r\n\r\n' + raw)
-                # Closing with unread request bytes can reset TCP on Windows before
-                # the client receives the 503. Half-close, then drain briefly;
-                # this accept-loop work has an absolute bound even for slow peers.
-                request.shutdown(socket.SHUT_WR)
-                deadline = time.monotonic() + .1
-                while time.monotonic() < deadline:
-                    request.settimeout(max(.001, deadline - time.monotonic()))
-                    if not request.recv(65536):
-                        break
+                _drain_rejected_connection(request)
             except OSError:
                 pass
             finally:
@@ -312,6 +318,8 @@ class ManagementService:
                     pass  # The durable write may have committed; never replay it here.
                 finally:
                     self.close_connection = True
+                    if status >= 400:
+                        _drain_rejected_connection(self.request)
                     elapsed = time.perf_counter() - started
                     service.metrics.observe(method, route, status, elapsed)
                     logger.info(json.dumps(dict(event='http_request', request_id=request_id,
