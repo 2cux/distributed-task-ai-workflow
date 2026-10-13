@@ -66,6 +66,17 @@ worker 执行业务及 AI 注册函数。节点支持并行、汇合、输出绑
 独立集成测试位于 `tests/test_dag_scheduling_integration.py`、
 `tests/test_dag_recovery_integration.py` 和 `tests/test_dag_ai_integration.py`。
 
+## 外部管理与可观测 API
+
+通过 `engine.create_management_service(admin_token, readonly_token=read_token, port=8080)`
+创建版本化 HTTP 管理服务，显式 `start()` 后提供工作流提交/查询/暂停/恢复、
+任务与 Worker 会话追踪、事故处理和审计分页接口。`/openapi.json` 提供接入契约，
+`/metrics` 提供 Prometheus 指标，`/health/live`、`/health/ready` 提供健康探针。
+服务复用持久化编排与恢复机制，业务 Worker 单独部署，无新增运行依赖。
+
+接入示例、权限与恢复边界、监控配置、四组独立测试和压测工具见
+[工作流管理 API 与可观测系统](docs/management_api.md)。
+
 ## 统一入口
 
 `TaskEngine` 是面向调用方的系统边界：它只装配 `TaskQueue`、执行器、Worker、

@@ -9,5 +9,8 @@ description = "Distributed Task & AI Workflow Orchestration Platform"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.scripts]
+workflow-management = "workflow_engine.management:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]

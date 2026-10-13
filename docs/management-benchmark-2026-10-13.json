@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-10-13T06:50:36.122756+00:00",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "passed": true,
+  "configuration": {
+    "workflows": 100,
+    "reads": 300,
+    "concurrency": 8,
+    "workers": 4,
+    "deadline": 60,
+    "coordinator_poll_seconds": 0.1,
+    "worker_poll_seconds": 0.05,
+    "worker_heartbeat_seconds": 1
+  },
+  "http": {
+    "requests": 400,
+    "errors": 0,
+    "error_types": [],
+    "elapsed_seconds": 8.566,
+    "requests_per_second": 46.7,
+    "latency_ms": {
+      "p50": 103.469,
+      "p95": 236.858,
+      "p99": 2396.412,
+      "maximum": 8323.652
+    }
+  },
+  "execution": {
+    "completed_workflows": 100,
+    "attempts": 200,
+    "retries": 0,
+    "total_elapsed_seconds": 9.508,
+    "workflows_per_second": 10.52
+  },
+  "integrity": "ok"
+}

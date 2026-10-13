@@ -183,6 +183,11 @@ class TaskEngine:
         from .remote import RecoveryService
         return RecoveryService(self._store, token, **options)
 
+    def create_management_service(self, token: str, **options):
+        """Create the external HTTP management/observability API; start explicitly."""
+        from .management import ManagementService
+        return ManagementService(self, token, **options)
+
     def recover_worker(self, session_id: str) -> list[Task]:
         if self._store is None:
             raise RuntimeError('recover_worker 需要持久化模式')

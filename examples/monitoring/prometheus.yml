@@ -1,0 +1,17 @@
+# Run Prometheus on the same host, or change this target to a protected HTTPS proxy.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: workflow-management
+    metrics_path: /metrics
+    scrape_timeout: 5s
+    authorization:
+      type: Bearer
+      credentials_file: workflow-api-read-token.txt
+    static_configs:
+      - targets: ['127.0.0.1:8080']

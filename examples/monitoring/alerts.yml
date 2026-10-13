@@ -1,0 +1,31 @@
+groups:
+  - name: workflow-management
+    rules:
+      - alert: WorkflowManagementUnavailable
+        expr: up{job="workflow-management"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Workflow management API cannot be scraped
+      - alert: WorkflowCoordinatorStalled
+        expr: time() - workflow_coordinator_last_success_timestamp_seconds > 30
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Workflow coordinator has not completed a successful scan
+      - alert: WorkflowNeedsIntervention
+        expr: workflow_engine_open_incidents > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Workflow recovery has open incidents
+      - alert: WorkflowAPIOverloaded
+        expr: increase(workflow_api_overloads_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Workflow API has rejected requests at its concurrency limit

@@ -31,8 +31,10 @@ from .workflow import WorkflowOrchestrator
 from .recovery import RecoverySystem, RecoveryReport, RecoveryIncident, RecoveryConflict
 from .remote import (RecoveryService, RemoteWorker, RemoteTaskStore,
                      RemoteTransportError, RemoteAuthenticationError)
+from .management import ManagementService
 
 __all__ = [
+    "ManagementService",
     "RecoverySystem", "RecoveryReport", "RecoveryIncident", "RecoveryConflict",
     "RecoveryService", "RemoteWorker", "RemoteTaskStore", "RemoteTransportError", "RemoteAuthenticationError",
     "DAGNode", "DAGWorkflow", "OutputRef", "NodeStatus", "WorkflowStatus",
