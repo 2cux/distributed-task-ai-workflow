@@ -1,0 +1,24 @@
+{
+  "id": "llm-draft-review-001",
+  "name": "LLM 起草与审查",
+  "nodes": [
+    {
+      "id": "draft",
+      "handler": "llm.chat.v1",
+      "kwargs": {
+        "system_prompt": "你是一名技术写作者，回答简洁且具体。",
+        "prompt": "为一个基于 DAG 的 AI 工作流平台写一份三点实施计划。"
+      }
+    },
+    {
+      "id": "review",
+      "handler": "llm.chat.v1",
+      "kwargs": {
+        "system_prompt": "审查用户提供的实施计划，指出一个主要风险并给出改进后的计划。"
+      },
+      "inputs": {
+        "prompt": {"node_id": "draft", "path": ["text"]}
+      }
+    }
+  ]
+}

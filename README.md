@@ -66,6 +66,24 @@ worker 执行业务及 AI 注册函数。节点支持并行、汇合、输出绑
 独立集成测试位于 `tests/test_dag_scheduling_integration.py`、
 `tests/test_dag_recovery_integration.py` 和 `tests/test_dag_ai_integration.py`。
 
+## 真实 LLM API 接入
+
+内置 `llm.chat.v1` 处理器支持配置 API Key、Base URL 和模型名，通过 OpenAI 兼容
+Chat Completions API 执行 DAG 节点。回答及输入、输出、总 token 用量随节点结果
+保存到 SQLite，可由下游节点引用，也可通过管理 API 查询。配置通过
+`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 环境变量或 `LLMConfig` 注入。
+
+```powershell
+$env:PYTHONPATH = 'src'
+$env:LLM_API_KEY = '<你的 API Key>'
+$env:LLM_BASE_URL = 'https://api.openai.com/v1'
+$env:LLM_MODEL = '<模型名称>'
+python -m workflow_engine.llm_cli --database llm.sqlite3 --workflow examples/llm_workflow.json
+```
+
+运行入口、Python 配置、结果结构和远程 Worker 接入见
+[真实 LLM 工作流文档](docs/llm_workflows.md)。
+
 ## 外部管理与可观测 API
 
 通过 `engine.create_management_service(admin_token, readonly_token=read_token, port=8080)`
