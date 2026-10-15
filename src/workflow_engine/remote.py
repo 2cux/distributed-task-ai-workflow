@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, build_opener, ProxyHandler, HTTPSHandler, HTTPRedirectHandler
 
 from .events import TaskEvent, TaskEventType
+from .failures import annotate_task_failure, failure_metadata, restore_failure_metadata
 from .persistence import (SQLiteTaskStore, PersistenceError, StaleExecutionError,
                           StoredTaskError, _json)
 from .reliable_worker import ReliableWorker, _join_timeout
@@ -261,7 +262,8 @@ class RecoveryService:
         task.status = TaskStatus(outcome)
         if outcome == 'FAILED':
             if (type(error) is not dict or not {'type', 'message', 'non_retryable'} <= error.keys() or
-                    error.keys() - {'type', 'message', 'non_retryable', 'timeout', 'elapsed'} or any(
+                    error.keys() - {'type', 'message', 'non_retryable', 'timeout', 'elapsed',
+                                    'failure_category', 'retryable'} or any(
                     type(error[key]) is not str for key in ('type', 'message')) or
                     type(error['non_retryable']) is not bool):
                 raise ValueError('failure must report a portable exception')
@@ -278,8 +280,10 @@ class RecoveryService:
                 if error['elapsed'] is None:
                     raise ValueError('elapsed must be finite')
                 task.error = TaskTimeoutError(error['timeout'], error['elapsed'], task.name)
+            restore_failure_metadata(task.error, error)
+            annotate_task_failure(task)
             policy = RetryPolicy(row['retry_limit'], **task._persisted_retry_config)
-            if not isinstance(task.error, PersistenceError) and task.retry_count < row['retry_limit']:
+            if not isinstance(task.error, PersistenceError) and policy.should_retry(task):
                 policy.begin_retry(task)
         # finish rechecks owner, attempt and live session inside its write transaction.
         self.store.finish(task, owner)
@@ -390,10 +394,14 @@ class RemoteTaskStore(SQLiteTaskStore):
         task._persisted_retry_config = payload['retry_config']
         task._retry_at, task._persisted = payload['retry_at'], True
         task._remote_session_id = payload['worker_session']
+        task._handler_name = handler
         task.result = payload['result']
         for field in ('error', 'last_error'):
             value = payload[field]
-            setattr(task, field, StoredTaskError(f"{value['type']}: {value['message']}") if value else None)
+            error = StoredTaskError(f"{value['type']}: {value['message']}") if value else None
+            if error is not None:
+                restore_failure_metadata(error, value)
+            setattr(task, field, error)
         task._events = [TaskEvent(v['task_id'], v['sequence'], TaskEventType(v['event_type']),
             v['timestamp'], TaskStatus(v['previous_status']) if v['previous_status'] else None,
             TaskStatus(v['status']), v['attempt_count'], v['retry_count'], _json(v['details']))
@@ -409,7 +417,8 @@ class RemoteTaskStore(SQLiteTaskStore):
 
     def finish(self, task, owner):
         error = None if task.error is None else dict(type=type(task.error).__name__,
-            message=str(task.error), non_retryable=isinstance(task.error, PersistenceError))
+            message=str(task.error), non_retryable=isinstance(task.error, PersistenceError),
+            **failure_metadata(task.error))
         if isinstance(task.error, TaskTimeoutError):
             error.update(timeout=task.error.timeout, elapsed=task.error.elapsed)
         payload = self._transport.call('finish', task_id=task.id, owner=owner,

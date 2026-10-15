@@ -14,6 +14,7 @@ import uuid
 
 from .executor import EXECUTABLE_STATUSES
 from .events import TaskEvent, TaskEventType, utc_now
+from .failures import annotate_task_failure, failure_metadata, restore_failure_metadata
 from .retry import RetryPolicy
 from .task import Task, TaskStatus
 from .timeout import TimeoutExecutor, TimeoutPolicy, TaskTimeoutError, run_with_timeout
@@ -295,12 +296,15 @@ class SQLiteTaskStore:
         task._persisted_retry_config = json.loads(row["retry_config"])
         task._retry_at = row["retry_at"]
         task._persisted = True
+        task._handler_name = handler
         task.result = json.loads(row["result"]) if row["result"] is not None else None
         for field in ("error", "last_error"):
             if row[field] is not None:
                 data = json.loads(row[field])
                 cls = UncertainExecutionError if data["type"] == "UncertainExecutionError" else StoredTaskError
-                setattr(task, field, cls(f"{data['type']}: {data['message']}"))
+                error = cls(f"{data['type']}: {data['message']}")
+                restore_failure_metadata(error, data)
+                setattr(task, field, error)
         task._events = self._read_events(db, task.id)
         return task
 
@@ -373,7 +377,7 @@ class SQLiteTaskStore:
     def _error(error: BaseException | None) -> str | None:
         if error is None:
             return None
-        return _json({"type": type(error).__name__, "message": str(error)})
+        return _json({"type": type(error).__name__, "message": str(error), **failure_metadata(error)})
 
     def finish(self, task: Task, owner: str) -> None:
         if task.status not in (TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.RETRYING):
@@ -397,6 +401,7 @@ class SQLiteTaskStore:
             else:
                 details = {"error_type": type(task.error).__name__ if task.error else None,
                            "error_message": str(task.error) if task.error else None, "owner": owner}
+                details.update(failure_metadata(task.error))
                 if isinstance(task.error, TaskTimeoutError):
                     details.update(timeout=task.error.timeout, elapsed=task.error.elapsed)
                 retrying = task.status is TaskStatus.RETRYING
@@ -427,9 +432,11 @@ class SQLiteTaskStore:
         for row in rows:
             task = self._decode(row, db)
             task.error = UncertainExecutionError("进程中断，业务执行结果不确定")
+            annotate_task_failure(task)
             task.status = TaskStatus.FAILED
-            if task.idempotent and task.retry_count < row["retry_limit"]:
-                RetryPolicy(row["retry_limit"], **task._persisted_retry_config).begin_retry(task)
+            policy = RetryPolicy(row["retry_limit"], **task._persisted_retry_config)
+            if task.idempotent and policy.should_retry(task):
+                policy.begin_retry(task)
             db.execute("""UPDATE tasks SET status=?, retry_count=?, error=?, last_error=?,
                 owner=NULL, worker_session=NULL, retry_at=?, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=?""", (task.status.value, task.retry_count,
                 self._error(task.error), self._error(task.last_error), task.retry_at, task.id))
@@ -439,7 +446,7 @@ class SQLiteTaskStore:
                                status=TaskStatus.FAILED, retry_count=row["retry_count"],
                                details={"error_type": "UncertainExecutionError",
                                         "error_message": str(task.error), "owner": row["owner"],
-                                        "worker_session": row["worker_session"]})
+                                        "worker_session": row["worker_session"], **failure_metadata(task.error)})
             if retrying:
                 self._append_event(db, updated, TaskEventType.RETRY_SCHEDULED, TaskStatus.FAILED,
                                    details={"reason": "interrupted recovery", "retry_limit": row["retry_limit"],
@@ -500,12 +507,14 @@ class PersistentExecutor(TimeoutExecutor):
             if task.status is not TaskStatus.RUNNING:
                 task.status = TaskStatus.RUNNING
             task._events = list(claimed.events)
+            task._handler_name = claimed._handler_name
             try:
                 task.result = self._invoke(task)
                 _json(task.result)
             except BaseException as error:
                 task.result = None
                 task.error = error
+                annotate_task_failure(task)
                 task.status = TaskStatus.FAILED
                 policy = RetryPolicy(claimed._persisted_retry_limit, **claimed._persisted_retry_config)
                 if (not isinstance(error, PersistenceError)

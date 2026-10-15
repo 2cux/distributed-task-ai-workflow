@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from .task import Task, TaskStatus
+from .failures import annotate_task_failure
 
 #: 允许进入执行的状态：首次执行的 PENDING 与被重试策略重新入队的 RETRYING。
 EXECUTABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.PENDING, TaskStatus.RETRYING})
@@ -56,6 +57,7 @@ class Executor:
                 task.result = self._invoke(task)
             except BaseException as error:
                 task.error = error
+                annotate_task_failure(task)
                 task.status = TaskStatus.FAILED
             else:
                 task.status = TaskStatus.SUCCESS

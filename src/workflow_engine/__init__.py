@@ -5,6 +5,7 @@
 """
 
 from .executor import Executor, execute
+from .failures import FailureCategory
 from .events import TaskEvent, TaskEventType
 from .concurrency import ConcurrentWorker
 from .lifecycle import WorkerStatus
@@ -33,10 +34,12 @@ from .remote import (RecoveryService, RemoteWorker, RemoteTaskStore,
                      RemoteTransportError, RemoteAuthenticationError)
 from .management import ManagementService
 from .llm import (LLMConfig, LLMError, LLMHTTPError, LLMTimeoutError, LLMResponseError,
+                  LLMPermanentError, LLMTransientError,
                   LLMOutputError, LLM_OUTPUT_HANDLER, validate_llm_output,
                   OpenAIChatHandler, LLM_HANDLER, create_llm_registry)
 
 __all__ = [
+    "FailureCategory", "LLMPermanentError", "LLMTransientError",
     "LLMConfig", "LLMError", "LLMHTTPError", "LLMTimeoutError", "LLMResponseError",
     "OpenAIChatHandler", "LLM_HANDLER", "create_llm_registry",
     "LLMOutputError", "LLM_OUTPUT_HANDLER", "validate_llm_output",

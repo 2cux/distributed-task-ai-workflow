@@ -18,6 +18,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .failures import FailureCategory
+
 
 LLM_HANDLER = 'llm.chat.v1'
 LLM_OUTPUT_HANDLER = 'llm.validate.v1'
@@ -27,10 +29,31 @@ DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 class LLMError(RuntimeError):
     """Sanitized model API failure, safe to persist in task events."""
 
+    failure_category = FailureCategory.UNCERTAIN
+
+
+class LLMPermanentError(LLMError):
+    """The same request cannot succeed without configuration or input changes."""
+
+    failure_category = FailureCategory.PERMANENT
+
+
+class LLMTransientError(LLMError):
+    """A failure known to be safe to retry within the engine's budget."""
+
+    failure_category = FailureCategory.TRANSIENT
+
 
 class LLMHTTPError(LLMError):
-    def __init__(self, status_code: int):
+    def __init__(self, status_code: int, *, quota_exhausted: bool = False):
         self.status_code = status_code
+        if quota_exhausted or (300 <= status_code < 500 and status_code not in (408, 429)) or status_code in (501, 505):
+            self.failure_category = FailureCategory.PERMANENT
+        elif status_code in (429, 503):
+            self.failure_category = FailureCategory.TRANSIENT
+        else:
+            # Gateway timeouts and server failures may follow model execution.
+            self.failure_category = FailureCategory.UNCERTAIN
         super().__init__(f'LLM API returned HTTP {status_code}')
 
 
@@ -42,7 +65,7 @@ class LLMResponseError(LLMError):
     """The provider did not return a valid text completion."""
 
 
-class LLMOutputError(LLMError):
+class LLMOutputError(LLMPermanentError):
     """A received model result failed a downstream output contract."""
 
 
@@ -125,6 +148,8 @@ class OpenAIChatHandler:
     Missing provider usage stays unknown (null), never a fabricated zero.
     """
 
+    failure_scope = 'llm'
+
     def __init__(self, config: LLMConfig):
         if not isinstance(config, LLMConfig):
             raise TypeError('config must be LLMConfig')
@@ -168,31 +193,45 @@ class OpenAIChatHandler:
         request = Request(self.config.base_url + '/chat/completions', data=data, method='POST',
                           headers={'Authorization': 'Bearer ' + self.config.api_key,
                                    'Content-Type': 'application/json', 'Accept': 'application/json'})
+        response_received = False
         try:
             # Each call owns its opener and response, including concurrent DAG branches.
             with build_opener(_NoRedirect()).open(request, timeout=self.config.timeout) as response:
+                response_received = True
                 if response.status != 200:
                     raise LLMHTTPError(response.status)
                 raw = response.read(self.config.max_response_bytes + 1)
         except HTTPError as error:
             status = error.code
-            error.close()
+            quota_exhausted = False
+            try:
+                if status == 429:
+                    # Only inspect bounded machine codes; never retain provider
+                    # messages, headers, URLs or bodies in exceptions/events.
+                    body = json.loads(error.read(min(self.config.max_response_bytes, 65536) + 1))
+                    detail = body.get('error') if isinstance(body, dict) else None
+                    if isinstance(detail, dict):
+                        quota_exhausted = any(detail.get(key) in (
+                            'insufficient_quota', 'billing_hard_limit_reached',
+                            'billing_not_active', 'credit_balance_exhausted')
+                            for key in ('code', 'type'))
+            except (OSError, HTTPException, ValueError, RecursionError):
+                pass
+            finally:
+                error.close()
             # Error bodies/URLs may echo credentials; persist only the status code.
-            raise LLMHTTPError(status) from None
+            raise LLMHTTPError(status, quota_exhausted=quota_exhausted) from None
         except TimeoutError:
             raise LLMTimeoutError('LLM API request timed out; outcome may be unknown') from None
         except URLError as error:
-            if isinstance(error.reason, TimeoutError):
-                raise LLMTimeoutError('LLM API request timed out; outcome may be unknown') from None
-            for kind, description in ((ssl.SSLCertVerificationError, 'TLS certificate verification failed'),
-                                      (ssl.SSLError, 'TLS negotiation failed'),
-                                      (socket.gaierror, 'DNS resolution failed'),
-                                      (ConnectionRefusedError, 'connection refused'),
-                                      (PermissionError, 'network access denied')):
-                if isinstance(error.reason, kind):
-                    raise LLMError('LLM API ' + description + '; outcome may be unknown') from None
-            raise LLMError('LLM API connection failed; outcome may be unknown') from None
-        except (OSError, HTTPException, ValueError):
+            if response_received:
+                raise LLMError('LLM API response transport failed; outcome may be unknown') from None
+            raise _transport_error(error.reason) from None
+        except OSError as error:
+            if response_received:
+                raise LLMError('LLM API response transport failed; outcome may be unknown') from None
+            raise _transport_error(error) from None
+        except (HTTPException, ValueError):
             raise LLMError('LLM API transport failed; outcome may be unknown') from None
         if len(raw) > self.config.max_response_bytes:
             raise LLMResponseError('LLM API response exceeds max_response_bytes')
@@ -220,6 +259,22 @@ class OpenAIChatHandler:
         return dict(text=text, model=value.get('model') or requested_model,
                     requested_model=requested_model, response_id=value.get('id'),
                     finish_reason=choice.get('finish_reason'), usage=usage)
+
+
+def _transport_error(error):
+    if isinstance(error, TimeoutError):
+        return LLMTimeoutError('LLM API request timed out; outcome may be unknown')
+    if isinstance(error, socket.gaierror):
+        cls = LLMTransientError if error.errno == socket.EAI_AGAIN else LLMPermanentError
+        return cls('LLM API DNS resolution failed')
+    for kind, cls, description in (
+            (ssl.SSLCertVerificationError, LLMPermanentError, 'TLS certificate verification failed'),
+            (ssl.SSLError, LLMError, 'TLS negotiation failed; outcome may be unknown'),
+            (ConnectionRefusedError, LLMTransientError, 'connection refused'),
+            (PermissionError, LLMPermanentError, 'network access denied')):
+        if isinstance(error, kind):
+            return cls('LLM API ' + description)
+    return LLMError('LLM API connection failed; outcome may be unknown')
 
 
 def validate_llm_output(result: dict, *, expected_text: str | None = None,
@@ -251,6 +306,9 @@ def validate_llm_output(result: dict, *, expected_text: str | None = None,
     if compiled is not None and compiled.fullmatch(result['text']) is None:
         raise LLMOutputError('LLM output does not match pattern')
     return result
+
+
+validate_llm_output.failure_scope = 'llm_validation'
 
 
 def create_llm_registry(config: LLMConfig | None = None) -> dict:

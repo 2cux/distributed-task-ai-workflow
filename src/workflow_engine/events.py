@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 import json
+from .failures import failure_metadata
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -56,6 +57,7 @@ def snapshot_details(task: Task) -> dict[str, Any]:
         except BaseException:
             message = "<unrepresentable error>"
         details.update(error_type=type(task.error).__name__, error_message=message)
+        details.update(failure_metadata(task.error))
         if isinstance(task.error, TimeoutError) and hasattr(task.error, "elapsed"):
             details.update(timeout=task.error.timeout, elapsed=task.error.elapsed)
     if task.status.value == "SUCCESS":

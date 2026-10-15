@@ -20,6 +20,7 @@ import math
 import time
 
 from .task import Task, TaskStatus
+from .failures import FailureCategory, classify_task_failure
 
 
 class RetryPolicyError(RuntimeError):
@@ -103,26 +104,34 @@ class RetryPolicy:
         只有 ``FAILED`` 状态的任务才有重试资格；``RUNNING``、``SUCCESS``、
         ``PENDING``、``RETRYING`` 状态一律返回 ``False``，避免把未失败或
         已经在队列中的任务重复入队。
+        LLM 任务还要求失败被明确分类为临时错误；永久和不确定结果不自动重试。
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
         with task._lock:
             if task.status is not TaskStatus.FAILED:
                 return False
-
+            category = classify_task_failure(task)
+            if category in (FailureCategory.PERMANENT, FailureCategory.UNCERTAIN):
+                return False
             return self.can_retry(task)
 
-    def begin_retry(self, task: Task) -> Task:
+    def begin_retry(self, task: Task, *, manual: bool = False) -> Task:
         """为任务保留一次重试机会，并把它置为待重新执行的 ``RETRYING``。
 
         记入 ``last_error`` 的异常优先取 ``task.error``（本次执行的失败），
         没有时回退到已有的 ``last_error``。该方法不把任务放回队列，重新入队
         由 Worker 在确认队列可接收后完成。
+        ``manual=True`` 仅供已核实结果的显式人工恢复使用，可越过失败分类，
+        仍须满足 FAILED 状态和次数预算。
         """
         if not isinstance(task, Task):
             raise TypeError("task 必须是 Task 实例")
         with task._lock:
-            if not self.should_retry(task):
+            # Manual recovery already requires operator evidence and idempotency.
+            # It may override classification, but never state or retry budget.
+            allowed = (task.status is TaskStatus.FAILED and self.can_retry(task)) if manual else self.should_retry(task)
+            if not allowed:
                 raise RetryPolicyError(
                     f"任务 {task.name!r} 当前无法重试："
                     f"status={task.status.value}, retry_count={task.retry_count}, "

@@ -409,7 +409,7 @@ class RecoverySystem:
                 task = self.store._decode(row, db)
                 # Persisted effective budget overrides the original Task.max_retries.
                 task.max_retries = limit
-                RetryPolicy(limit, **task._persisted_retry_config).begin_retry(task)
+                RetryPolicy(limit, **task._persisted_retry_config).begin_retry(task, manual=True)
                 status, retry_count, retry_at = task.status.value, task.retry_count, task.retry_at
             elif action == 'succeed':
                 status = 'SUCCESS'

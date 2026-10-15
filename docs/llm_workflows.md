@@ -187,12 +187,32 @@ SQLite 留在中心。中心若只提供调度服务，可以为每个名称分�
 
 ## 失败、重试与计量边界
 
-HTTP 失败只持久化状态码；网络错误按 DNS、TLS、连接拒绝、访问被禁止等类别给出
-脱敏诊断，不记录底层异常中的地址、凭据或响应体。客户端超时和非法响应也使用脱敏错误。
-节点失败后的下游跳过、退避、次数限制均沿用现有 DAG 机制。处理器自身不重试，
-一次节点 attempt 只发起一次模型请求。若显式配置 `RetryPolicy` 或 CLI
-`--max-retries`，当前引擎对这些失败统一按预算重试，包括 401 等配置错误。
-不设置自动重试可避免配置错误反复请求；修正配置后按已有恢复流程处理任务。
+LLM 失败分为三类，公开枚举为 `FailureCategory`。即使配置了 `RetryPolicy` 或
+CLI `--max-retries`，也只自动重试明确的临时性失败：
+
+| 分类 | 故障示例 | 自动处理 |
+| --- | --- | --- |
+| `permanent` 永久性错误 | 非法参数；HTTP 400、401、403、404、413、422；重定向；501、505；429 的额度耗尽；证书验证失败、访问被禁止、无法解析的域名；输出契约不匹配 | 直接失败，不消耗重试次数 |
+| `transient` 临时性错误 | 普通 HTTP 429 限流、503 服务不可用；DNS `EAI_AGAIN`；连接被拒绝（尚未发送请求） | 使用现有指数退避和任务／引擎次数预算 |
+| `uncertain` 执行结果不确定 | HTTP 408、500、502、504 及其他未明确分类的响应；请求超时、连接重置、通用 TLS 故障、读取中断；HTTP 200 后响应非法或超限；任务软超时；进程在提交结果前中断 | 停止自动重试，核实供应商结果后走人工恢复流程 |
+
+429 响应只在内存中限量检查 `error.code` / `error.type`，将 `insufficient_quota`、
+`billing_hard_limit_reached`、`billing_not_active`、`credit_balance_exhausted` 识别为
+永久性错误。HTTP 错误消息仅包含状态码；底层网络异常、响应体和供应商消息不会写入
+错误或事件。已开始读取成功响应后的传输故障一律按结果不确定处理。
+对于兼容供应商，没有其明确的未执行证明时，500／网关错误采用保守策略，避免重复生成。
+
+处理器自身不重试，一次 attempt 至多发起一次模型请求。分类和 `retryable` 标志保存到
+任务错误、`last_error` 和失败事件，经过 SQLite 重启与远程 RPC 仍保留。
+`retryable` 表示该类故障可安全自动重试，实际是否调度还取决于次数预算；耗尽后仍停止。
+旧远程 Worker 未提供分类时，LLM 未知故障停止自动重试；升级时建议中心和 Worker 一起更新。
+非 LLM 业务任务沿用原有重试行为。下游跳过与事故处理沿用既有 DAG 机制。
+
+`LLMPermanentError`、`LLMTransientError` 可用于自定义模型处理器；`LLMError`、
+`LLMTimeoutError`、`LLMResponseError` 默认表示不确定结果，`LLMOutputError` 表示永久失败。
+内置处理器使用其他注册名时仍保留分类。对 LLM，即使设置 `idempotent=True`，也不会让
+不确定结果自动重放。人工恢复仍要求现有的操作人、原因、幂等性与次数预算检查；
+非幂等调用应核实外部结果后通过 `succeed` 提交已确认结果，或选择 `fail`。
 
 LLM 请求可能收费且输出不确定，因此示例保持 `idempotent=False`。
 客户端超时、连接中断或结果提交前崩溃时，供应商可能已生成并计费；引擎无法保证
@@ -206,12 +226,16 @@ LLM 请求可能收费且输出不确定，因此示例保持 `idempotent=False`
 ```powershell
 $env:PYTHONPATH = 'src'
 python -m unittest discover -s tests -p test_llm.py -v
+python -m unittest discover -s tests -p test_llm_failure_retry.py -v
 ```
 
 测试启动本机 HTTP 供应商模拟服务，实际经过 HTTP 客户端、DAG Worker、SQLite、
 远程 RPC 和管理 API，覆盖凭据与请求参数、上下游回答传递、用量缺失、错误脱敏、
 超时、重试、重启去重和 CLI。测试不消耗外部模型额度；供应商实测需配置自己的 Key、
 Base URL 和模型后运行上述 CLI。
+独立的 `test_llm_failure_retry.py` 进一步验证三类失败、额度耗尽与限流区分、
+实际 HTTP 调用次数、预算与退避、软超时、进程中断隔离、持久化与远程分类传递、
+人工恢复及非 LLM 重试兼容性。
 
 需要验证真实供应商、管理 HTTP、两个独立 RemoteWorker 进程、并行 DAG、供应商拒绝、
 事故解决及服务重启去重时，可显式运行：
