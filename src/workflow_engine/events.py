@@ -23,6 +23,7 @@ class TaskEventType(str, Enum):
     INTERRUPTED = "INTERRUPTED"
     RESTORED = "RESTORED"
     MANUAL_RESOLUTION = "MANUAL_RESOLUTION"
+    BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
 
 
 @dataclass(frozen=True)

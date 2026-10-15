@@ -86,7 +86,7 @@ POST 返回 **202** 表示已持久化接受，不代表执行完成。外部调
 | --- | --- | --- |
 | POST | `/api/v1/workflows` | 原子提交 DAG，幂等重发 |
 | GET | `/api/v1/workflows` | 分页列出工作流，可按 `status` 过滤 |
-| GET | `/api/v1/workflows/{id}` | 定义、节点状态/结果、暂停来源 |
+| GET | `/api/v1/workflows/{id}` | 定义、节点状态/结果、暂停来源、LLM 用量与预算状态 |
 | POST | `/api/v1/workflows/{id}/pause` | 阻止新领取，记录操作审计 |
 | POST | `/api/v1/workflows/{id}/resume` | 移除人工暂停，重新推进依赖 |
 | GET | `/api/v1/workflows/{id}/events` | 汇总工作流所有节点的执行事件 |

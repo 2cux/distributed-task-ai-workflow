@@ -11,6 +11,7 @@ import json
 from .dag import WorkflowStatus
 from .recovery import CLAIM_GUARD
 from .task import TaskStatus
+from .llm_usage import budget_status, workflow_usage
 
 
 class ManagementQueries:
@@ -57,6 +58,8 @@ class ManagementQueries:
         value = dict(id=row['id'], name=definition['name'], status=row['status'])
         if detail:
             value['definition'] = definition
+            value['llm_usage'] = workflow_usage(db, row['id'])
+            value['llm_budget'] = budget_status(definition.get('llm_budget'), value['llm_usage'])
             value['holds'] = self.holds(db, 'workflow', row['id'])
             value['nodes'] = [dict(id=node['node_id'], task_id=node['task_id'],
                                   status=(node['state'] if node['state'] in ('WAITING', 'SKIPPED', 'FAILED') else

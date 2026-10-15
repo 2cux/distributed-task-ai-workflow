@@ -54,7 +54,9 @@ def _object(value, allowed, required=()):
 
 
 def _workflow(value, registry):
-    _object(value, ('id', 'name', 'nodes'), ('id', 'nodes'))
+    _object(value, ('id', 'name', 'nodes', 'llm_budget'), ('id', 'nodes'))
+    if 'llm_budget' in value:
+        _object(value['llm_budget'], ('max_calls', 'max_total_tokens'))
     for field, bound in (('id', 256), ('name', 512)):
         if field in value and (type(value[field]) is not str or not 1 <= len(value[field]) <= bound):
             raise APIError(400, 'invalid_workflow', field + ' is empty or exceeds the character limit')

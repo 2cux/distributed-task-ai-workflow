@@ -18,7 +18,8 @@ def openapi_document():
         required=['node_id'], properties={'node_id': text, 'path': {'type': 'array', 'items': {'type': ['string', 'integer']}}}),
         'WorkflowDefinition': dict(type='object', additionalProperties=False, required=['id', 'nodes'],
             properties={'id': {**text, 'maxLength': 256}, 'name': {**text, 'maxLength': 512},
-                        'nodes': {'type': 'array', 'minItems': 1, 'maxItems': 1000, 'items': ref('Node')}}),
+                        'nodes': {'type': 'array', 'minItems': 1, 'maxItems': 1000, 'items': ref('Node')},
+                        'llm_budget': ref('LLMBudget')}),
         'OperatorAction': operator,
         'Resolution': {**operator, 'required': ['operator', 'reason', 'action'],
                        'properties': {**operator['properties'], 'action': {'enum': ['retry', 'succeed', 'fail']},
@@ -39,6 +40,25 @@ def openapi_document():
     count = {'type': 'integer', 'minimum': 0}
     nullable_text = {'type': ['string', 'null']}
     nullable_time = {'type': ['number', 'null']}
+    nullable_count = {'type': ['integer', 'null'], 'minimum': 0}
+    schemas['LLMBudget'] = dict(type='object', additionalProperties=False, properties={
+        'max_calls': nullable_count, 'max_total_tokens': nullable_count})
+    usage_fields = ('call_count', 'successful_calls', 'failed_calls', 'running_calls',
+                    'unknown_outcome_calls', 'unknown_usage_calls')
+    schemas['LLMUsage'] = record(' '.join(usage_fields), {
+        **{key: count for key in usage_fields},
+        **{key: nullable_count for key in ('prompt_tokens', 'completion_tokens', 'total_tokens')},
+        'failure_rate': {'type': 'number', 'minimum': 0, 'maximum': 1,
+                         'description': 'Failed attempts / completed attempts; zero if none completed.'},
+        'missing_usage_calls': {'type': 'object', 'additionalProperties': count},
+        'usage_complete': {'type': 'boolean'}})
+    schemas['LLMBudgetStatus'] = record('limits blocked reason waiting_for_usage', {
+        'limits': ref('LLMBudget'), 'remaining_calls': nullable_count,
+        'remaining_total_tokens': nullable_count, 'blocked': {'type': 'boolean'},
+        'reason': {'enum': [None, 'max_calls', 'max_total_tokens', 'unknown_token_usage']},
+        'waiting_for_usage': {'type': 'boolean'}})
+    schemas['Workflow']['properties'].update(llm_usage=ref('LLMUsage'), llm_budget=ref('LLMBudgetStatus'))
+    schemas['Workflow']['required'] += ['llm_usage', 'llm_budget']
     schemas.update({
         'WorkflowSummary': record('id name status', {key: schemas['Workflow']['properties'][key] for key in ('id', 'name', 'status')}),
         'NodeRun': record('id task_id status task_status attempt_count retry_count', {

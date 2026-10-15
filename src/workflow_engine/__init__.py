@@ -29,6 +29,7 @@ from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
 from .reliable_worker import ReliableWorker, WorkerMonitor
 from .dag import DAGNode, DAGWorkflow, OutputRef, NodeStatus, WorkflowStatus, NodeRun, WorkflowRun
 from .workflow import WorkflowOrchestrator
+from .llm_usage import LLMBudget
 from .recovery import RecoverySystem, RecoveryReport, RecoveryIncident, RecoveryConflict
 from .remote import (RecoveryService, RemoteWorker, RemoteTaskStore,
                      RemoteTransportError, RemoteAuthenticationError)
@@ -39,6 +40,7 @@ from .llm import (LLMConfig, LLMError, LLMHTTPError, LLMTimeoutError, LLMRespons
                   OpenAIChatHandler, LLM_HANDLER, create_llm_registry)
 
 __all__ = [
+    "LLMBudget",
     "FailureCategory", "LLMPermanentError", "LLMTransientError",
     "LLMConfig", "LLMError", "LLMHTTPError", "LLMTimeoutError", "LLMResponseError",
     "OpenAIChatHandler", "LLM_HANDLER", "create_llm_registry",

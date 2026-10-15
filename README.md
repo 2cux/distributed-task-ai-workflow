@@ -86,6 +86,12 @@ python -m workflow_engine.llm_cli --database llm.sqlite3 --workflow examples/llm
 运行入口、Python 配置、结果结构和远程 Worker 接入见
 [真实 LLM 工作流文档](docs/llm_workflows.md)。
 
+工作流快照包含调用次数、token 汇总、失败率与未知用量；校验节点复制的结果不会
+重复计量。可通过 `LLMBudget(max_calls=3, max_total_tokens=5000)` 或工作流 JSON
+的 `llm_budget` 配置资源上限，本地与远程 Worker 在原子领取时统一检查。
+token 上限按已知用量阻止后续调用，单次请求可能跨过阈值。示例见
+[`examples/llm_budgeted_workflow.json`](examples/llm_budgeted_workflow.json)。
+
 ## 外部管理与可观测 API
 
 通过 `engine.create_management_service(admin_token, readonly_token=read_token, port=8080)`

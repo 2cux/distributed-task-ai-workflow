@@ -14,6 +14,7 @@ from .dag import DAGWorkflow, NodeRun, NodeStatus, WorkflowRun, WorkflowStatus
 from .events import TaskEventType
 from .persistence import IdempotencyConflict, PersistenceError, _json
 from .task import Task, TaskStatus
+from .llm_usage import budget_status, is_llm_handler, workflow_usage
 
 
 class SQLiteWorkflowStore:
@@ -27,6 +28,15 @@ class SQLiteWorkflowStore:
                 node_id TEXT NOT NULL, task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id),
                 state TEXT NOT NULL, error TEXT,
                 PRIMARY KEY(workflow_id, node_id))""")
+            columns = {row[1] for row in db.execute('PRAGMA table_info(workflow_nodes)')}
+            if 'is_llm' not in columns:
+                db.execute('ALTER TABLE workflow_nodes ADD COLUMN is_llm INTEGER NOT NULL DEFAULT 0')
+                # One-time migration of existing workflows, preserving submitted definitions.
+                for row in db.execute('SELECT id,definition FROM workflow_runs').fetchall():
+                    for node in json.loads(row['definition'])['nodes']:
+                        if is_llm_handler(node['handler'], tasks.registry.get(node['handler'])):
+                            db.execute('UPDATE workflow_nodes SET is_llm=1 WHERE workflow_id=? AND node_id=?',
+                                       (row['id'], node['id']))
 
     def submit(self, workflow: DAGWorkflow, retry_policy=None) -> WorkflowRun:
         if not isinstance(workflow, DAGWorkflow):
@@ -56,8 +66,10 @@ class SQLiteWorkflowStore:
                 limit = retry_policy.limit_for(task) if retry_policy else 0
                 self.tasks._submit(db, task, self.tasks._definition(task), limit,
                                    retry_policy, workflow_blocked=True)
-                db.execute("INSERT INTO workflow_nodes VALUES(?,?,?,?,NULL)",
-                           (workflow.id, node.id, task_id, NodeStatus.WAITING.value))
+                db.execute("""INSERT INTO workflow_nodes
+                    (workflow_id,node_id,task_id,state,error,is_llm) VALUES(?,?,?,?,NULL,?)""",
+                    (workflow.id, node.id, task_id, NodeStatus.WAITING.value,
+                     int(is_llm_handler(node.handler, handler))))
             return self._advance(db, workflow.id)
 
     def advance(self, workflow_id: str) -> WorkflowRun:
@@ -143,7 +155,33 @@ class SQLiteWorkflowStore:
             nodes[row['node_id']] = NodeRun(row['node_id'], row['task_id'], state,
                 json.loads(row['result']) if row['result'] is not None else None,
                 error, row['attempt_count'], row['retry_count'])
-        return WorkflowRun(run['id'], definition['name'], WorkflowStatus(run['status']), nodes)
+        usage = workflow_usage(db, run['id'])
+        return WorkflowRun(run['id'], definition['name'], WorkflowStatus(run['status']), nodes,
+                           usage, budget_status(definition.get('llm_budget'), usage))
+
+    def admit_llm(self, db, task_row) -> bool:
+        """Called only for a due, unfenced candidate, in its claim transaction."""
+        run = db.execute('''SELECT w.* FROM workflow_runs w JOIN workflow_nodes n ON n.workflow_id=w.id
+            WHERE n.task_id=? AND n.is_llm=1''', (task_row['id'],)).fetchone()
+        if run is None:
+            return True
+        limits = json.loads(run['definition']).get('llm_budget')
+        if not limits:
+            return True
+        status = budget_status(limits, workflow_usage(db, run['id']))
+        if status['blocked']:
+            message = 'workflow LLM budget blocked dispatch: ' + status['reason']
+            error = dict(type='LLMBudgetExceeded', message=message,
+                         failure_category='permanent', retryable=False)
+            db.execute("UPDATE tasks SET status='FAILED',error=?,retry_at=NULL WHERE id=?",
+                       (_json(error), task_row['id']))
+            updated = db.execute('SELECT * FROM tasks WHERE id=?', (task_row['id'],)).fetchone()
+            self.tasks._append_event(db, updated, TaskEventType.BUDGET_EXCEEDED,
+                                     TaskStatus(task_row['status']), details=error)
+            return False
+        # Without a prompt tokenizer no sound whole-request reservation is possible.
+        # Allow one outstanding call under a token cap, then gate on its actual usage.
+        return not status['waiting_for_usage']
 
     def get(self, workflow_id: str) -> WorkflowRun | None:
         with self.tasks._connection() as db:

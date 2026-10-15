@@ -342,21 +342,44 @@ class SQLiteTaskStore:
         with self._transaction() as db:
             self.workers._require_claimable(db, worker_session)
             now = time.time()
-            row = db.execute(f"""SELECT * FROM tasks
+            cursor = None
+            while True:
+                after = ('' if cursor is None else """AND (json_extract(definition,'$.priority') < ? OR
+                    (json_extract(definition,'$.priority') = ? AND sequence > ?))""")
+                arguments = [_json(list(self.registry)), now, now]
+                if cursor is not None:
+                    arguments.extend(cursor)
+                row = db.execute(f"""SELECT * FROM tasks
                 WHERE status IN ('PENDING','RETRYING')
                 AND workflow_blocked=0
                 AND {CLAIM_GUARD}
                 AND json_extract(definition,'$.handler') IN (SELECT value FROM json_each(?))
                 AND (retry_at IS NULL OR retry_at<=?)
                 AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)
+                {after}
                 ORDER BY json_extract(definition, '$.priority') DESC, sequence LIMIT 1""",
-                (_json(list(self.registry)), now, now)).fetchone()
-            return None if row is None else self._claim(db, self._decode(row, db), owner, worker_session)
+                arguments).fetchone()
+                if row is None:
+                    return None
+                claimed = self._claim(db, self._decode(row, db), owner, worker_session)
+                if claimed is not None:
+                    return claimed
+                priority = json.loads(row['definition'])['priority']
+                cursor = (priority, priority, row['sequence'])
 
     def _claim(self, db, task: Task, owner: str, worker_session: str | None) -> Task | None:
         from .recovery import CLAIM_GUARD
         if worker_session is not None:
             self.workers._require_claimable(db, worker_session)
+        candidate = db.execute(f"""SELECT * FROM tasks
+            WHERE id=? AND status=? AND attempt_count=? AND retry_count=?
+            AND workflow_blocked=0 AND {CLAIM_GUARD}
+            AND (retry_at IS NULL OR retry_at<=?)
+            AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)""",
+            (task.id, task.status.value, task.attempt_count, task.retry_count,
+             time.time(), time.time())).fetchone()
+        if candidate is None or not self.workflows.admit_llm(db, candidate):
+            return None
         changed = db.execute(f"""UPDATE tasks SET status='RUNNING', owner=?, worker_session=?,
             attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL
             WHERE id=? AND status=? AND attempt_count=? AND retry_count=?

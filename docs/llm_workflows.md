@@ -144,7 +144,7 @@ DAGNode("checked", "llm.validate.v1",
 ```
 
 校验节点不调用模型，成功时原样返回整个结果，保留响应 ID、文本和 token 用量。
-统计模型用量时只汇总生成节点，或按响应 ID 去重，不要重复计算校验节点复制的用量。
+内置工作流统计只汇总生成任务的执行记录，不会重复计算校验节点复制的用量。
 它默认拒绝空白回答及 `finish_reason != "stop"` 的结果，包括被 token 上限截断的回答。
 `expected_text` 使用逐字符匹配，`pattern` 使用完整正则匹配；二者可分别使用，也可同时使用。
 不会自动删除空白、补前缀、修复文本或再次请求模型。需要容许尾部空白时，应在正则中明确表达。
@@ -221,12 +221,81 @@ LLM 请求可能收费且输出不确定，因此示例保持 `idempotent=False`
 客户端超时限制连接／读操作，并非整个工作流的硬截止时间；DAG `timeout` 仍沿用
 既有软超时语义。
 
+## 工作流用量统计与资源预算
+
+工作流快照新增 `llm_usage` 和 `llm_budget`；Python 的 `engine.get_workflow(id)`、
+`orchestrator.run(id)`、CLI JSON 和管理 API `GET /api/v1/workflows/{id}` 均可查询。
+统计直接读取既有任务计数、成功结果及事件，不调用模型，也不修改历史 token 记录。
+
+```python
+from workflow_engine import LLMBudget
+
+workflow = DAGWorkflow((
+    DAGNode("draft", LLM_HANDLER, kwargs={"prompt": "写一份实施计划"}),
+    DAGNode("checked", "llm.validate.v1", inputs={"result": OutputRef("draft")}),
+), llm_budget=LLMBudget(max_calls=3, max_total_tokens=5000))
+orchestrator.submit(workflow)
+run = orchestrator.run(workflow.id)
+print(run.llm_usage)
+print(run.llm_budget)
+```
+
+| `llm_usage` 字段 | 口径 |
+| --- | --- |
+| `call_count` | 生成任务已领取的 attempt 数，包含重试、失败和运行中尝试；一次 attempt 至多发送一次请求，参数错误或领取后崩溃也保守计入 |
+| `successful_calls` / `failed_calls` | 按 attempt 的已提交结果计数，失败后成功重试分别计为一次失败、一次成功 |
+| `running_calls` / `unknown_outcome_calls` | 正在执行的尝试数／旧历史缺失而无法确定结果的尝试数 |
+| `failure_rate` | `failed_calls / (successful_calls + failed_calls)`，没有已完成尝试时为 0；校验失败、预算拦截、依赖跳过不计入 |
+| `prompt_tokens` / `completion_tokens` / `total_tokens` | 各字段已知用量之和；有调用但全部缺失时为 `null`，无调用时为 0 |
+| `missing_usage_calls` | 各 token 字段缺失的 attempt 数，含失败和运行中的未知用量 |
+| `unknown_usage_calls` / `usage_complete` | 至少一个基础 token 字段缺失的 attempt 数／三个字段是否全部完整 |
+
+计量身份是 `(task_id, attempt_count)`。不会同时累加结果快照与成功事件，也不会计入
+校验／工具节点复制的结果。即使响应 ID 缺失，或供应商对两个独立请求返回相同 ID，
+也能正确计数。重复查询、重复推进、相同定义重复提交和重启不会增加用量。
+人工 `succeed` 恢复把核实后的结果与用量附到原 attempt 上，不增加调用次数，并更新
+该 attempt 的成功／失败口径。历史缺失不会虚构早期成功、失败或 token。
+
+`llm.chat.v1` 和带 `failure_scope = 'llm'` 标记的自定义处理器算生成节点；
+提交时将身份写入节点日志，后续查询不依赖可执行 registry。自定义别名用于远程中心
+占位函数时，也须在提交前设置这个标记。旧数据库首次打开时自动识别内置生成节点及
+当前 registry 中带标记的别名；旧自定义别名需要在首次升级时提供对应 registry。
+
+JSON 顶层可以添加 `"llm_budget": {"max_calls": 3, "max_total_tokens": 5000}`，
+示例见 [`examples/llm_budgeted_workflow.json`](../examples/llm_budgeted_workflow.json)。
+两个上限均为非负整数，省略或 `null` 表示不限，0 表示禁止开始生成调用。
+预算属于不可变工作流定义，相同 ID 更改预算会触发幂等冲突，需使用新 ID。
+旧定义无需修改。单 prompt CLI 支持 `--max-calls` 和 `--max-total-tokens`；
+`--workflow` 模式应在 JSON 中配置预算，不能同时使用这些覆盖参数。
+
+预算检查和领取在同一个 SQLite 写事务中，覆盖本地执行、多个 Worker、跨进程及远程
+RPC；重试与人工重试也必须经过相同入口。`max_calls` 是严格的 attempt 上限，
+运行中的调用也占次数。`max_total_tokens` 按已提交的实际用量控制后续领取：
+同一工作流设置 token 上限后只允许一个生成 attempt 在途，等待其结果后再决定下一个，
+其他工作流和非生成节点仍可执行。未设置 token 上限时保留生成节点的并行能力。
+
+token 上限是后续调用的停止阈值，单次请求可能跨过阈值；缺少准确的输入分词与供应商
+计费确认，不能承诺整次调用严格不超 token。可结合节点 `max_completion_tokens`
+控制单次输出。失败、进程中断、供应商未返回 `total_tokens` 等未知用量下，配置了
+token 预算的工作流会保守阻止后续生成，不把未知用量当作 0。
+
+`llm_budget` 返回 `limits`、`remaining_calls`、`remaining_total_tokens`、`blocked`、
+`reason`、`waiting_for_usage`；剩余 token 无法确认时为 `null`。
+`reason` 可以是 `max_calls`、`max_total_tokens`、`unknown_token_usage`。
+预算禁止领取时，节点以 `LLMBudgetExceeded` 失败，写入 `BUDGET_EXCEEDED` 事件，
+不会递增 attempt、调用模型或计入模型失败率；依赖它的节点按既有规则跳过。
+已成功的生成及其校验仍可保留和使用。启用恢复协调的管理服务沿用已有事故／暂停流程。
+预算耗尽不代表已成功完成的工作流失败，只有仍需生成且被拦截的节点才会失败。
+
 ## 验证
 
 ```powershell
 $env:PYTHONPATH = 'src'
 python -m unittest discover -s tests -p test_llm.py -v
 python -m unittest discover -s tests -p test_llm_failure_retry.py -v
+python -m unittest discover -s tests -p test_llm_usage.py -v
+python -m unittest discover -s tests -p test_llm_budget.py -v
+python -m unittest discover -s tests -p test_llm_budget_integration.py -v
 ```
 
 测试启动本机 HTTP 供应商模拟服务，实际经过 HTTP 客户端、DAG Worker、SQLite、

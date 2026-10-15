@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from .persistence import _json
 from .task import Task
+from .llm_usage import LLMBudget
 
 
 class WorkflowStatus(str, Enum):
@@ -109,8 +110,11 @@ class DAGWorkflow:
     nodes: tuple[DAGNode, ...]
     id: str = field(default_factory=lambda: uuid4().hex)
     name: str = "workflow"
+    llm_budget: LLMBudget | None = None
 
     def __post_init__(self):
+        if self.llm_budget is not None and not isinstance(self.llm_budget, LLMBudget):
+            raise TypeError('llm_budget must be LLMBudget or None')
         if not isinstance(self.id, str) or not self.id or not isinstance(self.name, str) or not self.name:
             raise ValueError("workflow ID and name must be nonempty")
         if not isinstance(self.nodes, tuple) or not self.nodes or any(
@@ -143,12 +147,16 @@ class DAGWorkflow:
         return tuple(order)
 
     def to_dict(self) -> dict:
-        return dict(id=self.id, name=self.name, nodes=[node.to_dict() for node in self.nodes])
+        value = dict(id=self.id, name=self.name, nodes=[node.to_dict() for node in self.nodes])
+        if self.llm_budget is not None:
+            value['llm_budget'] = self.llm_budget.to_dict()
+        return value
 
     @classmethod
     def from_dict(cls, value: dict) -> DAGWorkflow:
         return cls(nodes=tuple(DAGNode.from_dict(node) for node in value['nodes']),
-                   id=value['id'], name=value.get('name', 'workflow'))
+                   id=value['id'], name=value.get('name', 'workflow'),
+                   llm_budget=LLMBudget.from_dict(value['llm_budget']) if 'llm_budget' in value else None)
 
 
 @dataclass(frozen=True)
@@ -168,6 +176,8 @@ class WorkflowRun:
     name: str
     status: WorkflowStatus
     nodes: dict[str, NodeRun]
+    llm_usage: dict = field(default_factory=dict)
+    llm_budget: dict = field(default_factory=dict)
 
     @property
     def terminal(self) -> bool:

@@ -1,0 +1,23 @@
+{
+  "id": "llm-budgeted-example-v1",
+  "name": "LLM usage and budget example",
+  "llm_budget": {"max_calls": 2, "max_total_tokens": 2000},
+  "nodes": [
+    {
+      "id": "draft",
+      "handler": "llm.chat.v1",
+      "kwargs": {"prompt": "用三句话解释 DAG 工作流。", "max_completion_tokens": 300}
+    },
+    {
+      "id": "checked",
+      "handler": "llm.validate.v1",
+      "inputs": {"result": {"node_id": "draft"}}
+    },
+    {
+      "id": "review",
+      "handler": "llm.chat.v1",
+      "kwargs": {"system_prompt": "检查并完善这段解释。", "max_completion_tokens": 300},
+      "inputs": {"prompt": {"node_id": "checked", "path": ["text"]}}
+    }
+  ]
+}
