@@ -20,6 +20,7 @@ class ServiceMetrics:
         self.coordinator_errors = 0
         self.coordinator_last_success = 0.0
         self.overloads = 0
+        self.database_busy_errors = 0
 
     def observe(self, method, route, status, elapsed):
         with self._lock:
@@ -41,6 +42,10 @@ class ServiceMetrics:
     def overloaded(self):
         with self._lock:
             self.overloads += 1
+
+    def database_busy(self):
+        with self._lock:
+            self.database_busy_errors += 1
 
     def render(self, overview):
         lines = []
@@ -65,6 +70,7 @@ class ServiceMetrics:
             for name, kind, value in (
                 ('workflow_api_uptime_seconds', 'gauge', time.monotonic() - self.started_clock),
                 ('workflow_api_overloads_total', 'counter', self.overloads),
+                ('workflow_api_database_busy_total', 'counter', self.database_busy_errors),
                 ('workflow_coordinator_ticks_total', 'counter', self.coordinator_ticks),
                 ('workflow_coordinator_errors_total', 'counter', self.coordinator_errors),
                 ('workflow_coordinator_last_success_timestamp_seconds', 'gauge', self.coordinator_last_success)):

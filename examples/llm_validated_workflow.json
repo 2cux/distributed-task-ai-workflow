@@ -1,0 +1,26 @@
+{
+  "id": "llm-validated-calculation-001",
+  "name": "LLM 生成、校验与下游消费",
+  "nodes": [
+    {
+      "id": "generate",
+      "handler": "llm.chat.v1",
+      "kwargs": {
+        "prompt": "计算 19+23，只输出整数结果，不要解释。"
+      }
+    },
+    {
+      "id": "checked",
+      "handler": "llm.validate.v1",
+      "max_retries": 0,
+      "kwargs": {"pattern": "[0-9]+", "expected_text": "42"},
+      "inputs": {"result": {"node_id": "generate"}}
+    },
+    {
+      "id": "review",
+      "handler": "llm.chat.v1",
+      "kwargs": {"system_prompt": "用户提供的是已通过校验的整数，请计算其两倍，只输出整数。"},
+      "inputs": {"prompt": {"node_id": "checked", "path": ["text"]}}
+    }
+  ]
+}

@@ -34,7 +34,10 @@ python -m workflow_engine.llm_cli --database llm.sqlite3 --workflow examples/llm
 | `LLM_TIMEOUT` | 正数秒，HTTP 连接和读操作超时，默认 60 |
 
 Base URL 应包含供应商要求的版本或兼容路径，例如 `/v1`；处理器追加
-`/chat/completions`。不要把完整 endpoint 或 API Key 放入 URL。
+`/chat/completions`。也接受以 `/chat/completions` 结尾的完整接口地址，配置时会
+归一化为根地址，避免重复追加路径。API Key 不得放入 URL。
+每个 `LLM_*` 字段不存在时，回退读取对应的 `APP_LLM_*` 字段；显式设置的
+`LLM_*` 优先，包括空字符串，空值会报配置错误，不会悄悄切换到备用配置。
 远程服务应使用 HTTPS；本机兼容服务也支持 HTTP。
 不自动读取 `.env` 文件；使用环境变量、部署系统的 secret 注入或下方的 Python 配置。
 HTTP 客户端使用系统代理配置，且不跟随重定向，避免将凭据转发到其他地址。
@@ -70,7 +73,7 @@ for node in run.nodes.values():
     print(node.id, node.status, node.result, node.error)
 ```
 
-`create_llm_registry()` 返回 `{ "llm.chat.v1": OpenAIChatHandler(config) }`。
+`create_llm_registry()` 注册 `llm.chat.v1`（模型调用）和 `llm.validate.v1`（输出校验）。
 可以与自己的检索、工具、校验函数注册表合并。不同供应商可分别构造
 `OpenAIChatHandler(LLMConfig(...))`，以不同稳定名称注册到同一引擎。
 相同名称在各 Worker 上应使用相同配置；重新配置模型或供应商应为新任务使用新的
@@ -129,6 +132,30 @@ API Key 保留在处理器配置中，不作为 DAG kwargs、数据库字段或 
 配置的 `repr` 隐藏 Key。模型输入和回答属于工作流数据，会持久化；不要将凭据写进
 prompt、messages 或工作流 JSON。
 
+## 模型输出校验
+
+HTTP 200 只说明收到响应。对完整性、固定标识或数字格式有要求时，在模型后增加
+`llm.validate.v1` 节点，再让业务节点引用校验节点的输出：
+
+```python
+DAGNode("checked", "llm.validate.v1",
+        kwargs={"pattern": r"[0-9]+", "expected_text": "42"},
+        inputs={"result": OutputRef("generate")})
+```
+
+校验节点不调用模型，成功时原样返回整个结果，保留响应 ID、文本和 token 用量。
+统计模型用量时只汇总生成节点，或按响应 ID 去重，不要重复计算校验节点复制的用量。
+它默认拒绝空白回答及 `finish_reason != "stop"` 的结果，包括被 token 上限截断的回答。
+`expected_text` 使用逐字符匹配，`pattern` 使用完整正则匹配；二者可分别使用，也可同时使用。
+不会自动删除空白、补前缀、修复文本或再次请求模型。需要容许尾部空白时，应在正则中明确表达。
+供应商不报告结束原因时，可显式 `require_stop=False`，同时配置业务需要的文本约束。
+
+校验失败抛出脱敏的 `LLMOutputError`，不会把不匹配的文本或校验规则写进错误消息。
+上游模型节点保持 SUCCESS，已收到的回答及用量继续保存在数据库中；
+下游受依赖门控制。管理服务开启恢复协调时，失败会产生事故并暂停工作流，
+需按事故处理流程决定后续操作。重跑校验节点不需要再次生成上游已成功的模型结果。
+完整示例见 [`examples/llm_validated_workflow.json`](../examples/llm_validated_workflow.json)。
+
 ## 管理服务和远程 Worker
 
 已有管理服务可直接加载环境配置工厂：
@@ -153,13 +180,15 @@ worker.start()
 # 保持进程存活；退出时调用 worker.shutdown()。
 ```
 
-中心和远端须注册相同的 handler 名称，SQLite 留在中心。中心若只提供调度服务，
-可以为该名称注册一个拒绝本地执行的占位函数，无需配置 LLM 凭据；真正的
+中心和远端须注册相同的 handler 名称，工厂现在包含上述两个 handler；升级时两端应一起更新。
+SQLite 留在中心。中心若只提供调度服务，可以为每个名称分别注册拒绝本地执行的占位函数，
+无需配置 LLM 凭据；真正的
 `OpenAIChatHandler` 和 API Key 只需存在于执行模型调用的 Worker 中。
 
 ## 失败、重试与计量边界
 
-HTTP 失败只持久化状态码；网络错误、客户端超时和非法响应使用脱敏错误。
+HTTP 失败只持久化状态码；网络错误按 DNS、TLS、连接拒绝、访问被禁止等类别给出
+脱敏诊断，不记录底层异常中的地址、凭据或响应体。客户端超时和非法响应也使用脱敏错误。
 节点失败后的下游跳过、退避、次数限制均沿用现有 DAG 机制。处理器自身不重试，
 一次节点 attempt 只发起一次模型请求。若显式配置 `RetryPolicy` 或 CLI
 `--max-retries`，当前引擎对这些失败统一按预算重试，包括 401 等配置错误。
@@ -183,3 +212,17 @@ python -m unittest discover -s tests -p test_llm.py -v
 远程 RPC 和管理 API，覆盖凭据与请求参数、上下游回答传递、用量缺失、错误脱敏、
 超时、重试、重启去重和 CLI。测试不消耗外部模型额度；供应商实测需配置自己的 Key、
 Base URL 和模型后运行上述 CLI。
+
+需要验证真实供应商、管理 HTTP、两个独立 RemoteWorker 进程、并行 DAG、供应商拒绝、
+事故解决及服务重启去重时，可显式运行：
+
+```powershell
+$env:PYTHONPATH = 'src'
+python tools/validate_real_llm.py
+```
+
+该工具直接使用产品的配置解析与归一化逻辑，并在 CLI 和远程 DAG 中执行输出校验节点。
+它会实际调用模型，预期 5 次成功调用及 1 次不存在模型的拒绝，
+不自动重试。每轮在新的 `.artifacts/real-llm-*` 目录保留 JSON、SQLite 和调用记录；
+`--output` 可指定尚不存在的输出目录。默认测试不运行它。
+实测结果及限制见 [2026-10-15 真实 LLM 验证报告](real-llm-validation-2026-10-15.md)。

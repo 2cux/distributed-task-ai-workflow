@@ -161,14 +161,22 @@ POST 返回 **202** 表示已持久化接受，不代表执行完成。外部调
 正常及错误响应携带 `X-Request-ID`。调用方可传入 1..64 字符的字母、数字、点、
 下划线或连字符，否则生成随机 ID。结构化 JSON 日志记录 `request_id`、方法、
 路由模板、状态码及耗时；不记录原始 URL、查询字符串、业务 body、结果或令牌。
+SQLite 忙或锁冲突额外记录 `failure_kind="database_busy"`，其他 SQLite 错误为
+`failure_kind="database_error"`，可通过 request ID 关联客户端的 503。
 按需启用 `workflow_engine.management` 的 INFO 日志；CLI 默认启用。
 
 默认请求体上限 1 MiB，响应上限 4 MiB，每个连接读写超时 2 秒，最多 32 个 HTTP
 处理线程（可配置 1..256）。拒绝分块 body、重复 JSON 字段、重复 query、非有限
 数值及未知定义字段。饱和连接立即返回 503，并对连接收尾设置短时间上限。
-读查询设置自己的数据库 busy timeout；写操作沿用存储的短事务与 30 秒 SQLite
-忙等待。socket 超时不是业务/事务取消，也不是 HTTP 请求的总时限。响应超限可能
+管理 HTTP 请求中的 SQLite 连接按 `request_timeout` 限制每次锁等待，读写均适用；
+持续争用时返回带 `Retry-After: 1` 的 503。等待策略按线程隔离，后台协调器和
+Worker 保留原有 30 秒存储等待。socket 超时和数据库锁等待上限不是业务/事务取消，
+也不是 HTTP 请求的总时限；多次数据库操作可能累积等待。响应超限可能
 发生在提交之后，调用方应按原 ID 查询；不能以错误响应断言写入一定未发生。
+同一个 `SQLiteTaskStore` 的写事务先按等待顺序排队，避免持续轮询的本地 Worker
+或协调器反复抢先，导致早到的 HTTP 提交饿死；读请求不经过该队列。
+跨进程、其他 store 及 Worker 注册表的写入仍由 SQLite 文件锁协调，持久化领取令牌
+和事务仍是任务去重与安全边界。
 
 服务默认绑定 loopback。标准库 HTTP 服务应放在可信网络及带 TLS、访问限流和
 请求总超时的反向代理之后。跨主机绑定须提供 `ssl_context`，或在确实有保护隧道/
@@ -191,6 +199,7 @@ HTTP 指标是进程内 counter/histogram，服务重启归零：
 | `workflow_api_requests_total{method,route,status}` | 完成请求数，路由使用模板，无 task/workflow ID |
 | `workflow_api_request_duration_seconds` | 含序列化与响应写入的处理耗时直方图 |
 | `workflow_api_overloads_total` | 在解析前因容量限制拒绝的连接数 |
+| `workflow_api_database_busy_total` | 管理 HTTP 因 SQLite 忙或锁冲突返回 503 的次数 |
 | `workflow_api_uptime_seconds` | 当前服务运行时长 |
 | `workflow_coordinator_ticks_total`、`workflow_coordinator_errors_total` | 扫描次数与失败次数 |
 | `workflow_coordinator_last_success_timestamp_seconds` | 最后成功扫描时间 |

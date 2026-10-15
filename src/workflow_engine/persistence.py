@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections import deque
 import json
 from pathlib import Path
 import sqlite3
@@ -36,6 +37,10 @@ class UncertainExecutionError(PersistenceError):
 
 class StoredTaskError(RuntimeError):
     """Portable representation of an exception from an earlier process."""
+
+
+class _WriteContentionError(sqlite3.OperationalError):
+    sqlite_errorcode = sqlite3.SQLITE_BUSY
 
 
 def _json(value: Any) -> str:
@@ -75,6 +80,9 @@ class SQLiteTaskStore:
             raise TypeError("registry 必须将非空名称映射到可调用对象")
         self.path = str(Path(path).resolve())
         self.registry = dict(registry)
+        self._connection_settings = threading.local()
+        self._writer_condition = threading.Condition()
+        self._writer_waiters = deque()
         with self._connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
         with self._transaction() as db:
@@ -129,7 +137,8 @@ class SQLiteTaskStore:
 
     @contextmanager
     def _connection(self):
-        db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+        db = sqlite3.connect(self.path, timeout=getattr(self._connection_settings, 'timeout', 30),
+                             isolation_level=None)
         db.row_factory = sqlite3.Row
         try:
             db.execute("PRAGMA foreign_keys=ON")
@@ -139,15 +148,51 @@ class SQLiteTaskStore:
             db.close()
 
     @contextmanager
-    def _transaction(self):
-        with self._connection() as db:
-            db.execute("BEGIN IMMEDIATE")
+    def connection_timeout(self, seconds):
+        """Scope lock waits to this thread; never change workers' connections."""
+        previous = getattr(self._connection_settings, 'timeout', 30)
+        self._connection_settings.timeout = seconds
+        try:
+            yield
+        finally:
+            self._connection_settings.timeout = previous
+
+    @contextmanager
+    def _writer_slot(self):
+        # SQLite's busy polling does not order competing local writers. A hot
+        # worker/coordinator can repeatedly win while an older HTTP write waits.
+        # Queue only writes on this store; reads and other processes stay free.
+        ticket = object()
+        with self._writer_condition:
+            self._writer_waiters.append(ticket)
             try:
-                yield db
-                db.execute("COMMIT")
+                ready = self._writer_condition.wait_for(
+                    lambda: self._writer_waiters[0] is ticket,
+                    timeout=getattr(self._connection_settings, 'timeout', 30))
+                if not ready:
+                    raise _WriteContentionError('local database writer queue is busy')
             except BaseException:
-                db.execute("ROLLBACK")
+                self._writer_waiters.remove(ticket)
+                self._writer_condition.notify_all()
                 raise
+        try:
+            yield
+        finally:
+            with self._writer_condition:
+                self._writer_waiters.popleft()
+                self._writer_condition.notify_all()
+
+    @contextmanager
+    def _transaction(self):
+        with self._writer_slot():
+            with self._connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                try:
+                    yield db
+                    db.execute("COMMIT")
+                except BaseException:
+                    db.execute("ROLLBACK")
+                    raise
 
     def _definition(self, task: Task) -> str:
         names = [name for name, func in self.registry.items() if func is task.callable]

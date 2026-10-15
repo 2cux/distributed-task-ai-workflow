@@ -11,12 +11,16 @@ from http.client import HTTPException
 import json
 import math
 import os
+import re
+import socket
+import ssl
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 LLM_HANDLER = 'llm.chat.v1'
+LLM_OUTPUT_HANDLER = 'llm.validate.v1'
 DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
 
@@ -36,6 +40,10 @@ class LLMTimeoutError(LLMError):
 
 class LLMResponseError(LLMError):
     """The provider did not return a valid text completion."""
+
+
+class LLMOutputError(LLMError):
+    """A received model result failed a downstream output contract."""
 
 
 def _text(value, name):
@@ -68,7 +76,10 @@ class LLMConfig:
             valid = False
         if not valid or any(char.isspace() or ord(char) < 32 for char in self.base_url):
             raise ValueError('base_url must be an HTTP(S) URL without credentials, query or fragment')
-        object.__setattr__(self, 'base_url', self.base_url.rstrip('/'))
+        base_url = self.base_url.rstrip('/')
+        if base_url.endswith('/chat/completions'):
+            base_url = base_url[:-len('/chat/completions')]
+        object.__setattr__(self, 'base_url', base_url)
         if (type(self.timeout) not in (int, float) or
                 not math.isfinite(self.timeout) or self.timeout <= 0):
             raise ValueError('timeout must be finite positive seconds')
@@ -77,18 +88,23 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> LLMConfig:
-        """Read LLM_API_KEY, LLM_MODEL, LLM_BASE_URL and LLM_TIMEOUT.
+        """Read LLM_* settings, falling back to matching APP_LLM_* names.
 
         Missing key/model fails before workflow submission. No .env file is
         implicitly loaded, and no credentials are written to disk.
         """
         env = os.environ if environ is None else environ
+        def setting(name, default=''):
+            # An explicitly empty primary setting must fail rather than silently
+            # selecting a different deployment's credentials or model.
+            return env.get('LLM_' + name, env.get('APP_LLM_' + name, default))
+
         try:
-            timeout = float(env.get('LLM_TIMEOUT', '60'))
+            timeout = float(setting('TIMEOUT', '60'))
         except (TypeError, ValueError):
             raise ValueError('LLM_TIMEOUT must be finite positive seconds') from None
-        return cls(api_key=env.get('LLM_API_KEY', ''), model=env.get('LLM_MODEL', ''),
-                   base_url=env.get('LLM_BASE_URL', DEFAULT_BASE_URL), timeout=timeout)
+        return cls(api_key=setting('API_KEY'), model=setting('MODEL'),
+                   base_url=setting('BASE_URL', DEFAULT_BASE_URL), timeout=timeout)
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -168,6 +184,13 @@ class OpenAIChatHandler:
         except URLError as error:
             if isinstance(error.reason, TimeoutError):
                 raise LLMTimeoutError('LLM API request timed out; outcome may be unknown') from None
+            for kind, description in ((ssl.SSLCertVerificationError, 'TLS certificate verification failed'),
+                                      (ssl.SSLError, 'TLS negotiation failed'),
+                                      (socket.gaierror, 'DNS resolution failed'),
+                                      (ConnectionRefusedError, 'connection refused'),
+                                      (PermissionError, 'network access denied')):
+                if isinstance(error.reason, kind):
+                    raise LLMError('LLM API ' + description + '; outcome may be unknown') from None
             raise LLMError('LLM API connection failed; outcome may be unknown') from None
         except (OSError, HTTPException, ValueError):
             raise LLMError('LLM API transport failed; outcome may be unknown') from None
@@ -199,6 +222,38 @@ class OpenAIChatHandler:
                     finish_reason=choice.get('finish_reason'), usage=usage)
 
 
-def create_llm_registry(config: LLMConfig | None = None) -> dict[str, OpenAIChatHandler]:
+def validate_llm_output(result: dict, *, expected_text: str | None = None,
+                        pattern: str | None = None, require_stop: bool = True) -> dict:
+    """Validate a saved result in a separate DAG node, without another API call.
+
+    Text matching is exact (no stripping or repair). Returning the original
+    result retains response metadata and usage for later nodes. A failing
+    contract never erases the upstream model task's successful response.
+    """
+    if type(require_stop) is not bool:
+        raise ValueError('require_stop must be bool')
+    if expected_text is not None and not isinstance(expected_text, str):
+        raise ValueError('expected_text must be a string')
+    compiled = None
+    if pattern is not None:
+        if not isinstance(pattern, str):
+            raise ValueError('pattern must be a string')
+        try:
+            compiled = re.compile(pattern)
+        except re.error:
+            raise ValueError('pattern must be a valid regular expression') from None
+    if not isinstance(result, dict) or not isinstance(result.get('text'), str) or not result['text'].strip():
+        raise LLMOutputError('LLM output must contain nonempty text')
+    if require_stop and result.get('finish_reason') != 'stop':
+        raise LLMOutputError('LLM output did not finish with stop')
+    if expected_text is not None and result['text'] != expected_text:
+        raise LLMOutputError('LLM output does not match expected_text')
+    if compiled is not None and compiled.fullmatch(result['text']) is None:
+        raise LLMOutputError('LLM output does not match pattern')
+    return result
+
+
+def create_llm_registry(config: LLMConfig | None = None) -> dict:
     """Registry factory also usable by workflow-management --registry."""
-    return {LLM_HANDLER: OpenAIChatHandler(config if config is not None else LLMConfig.from_env())}
+    return {LLM_HANDLER: OpenAIChatHandler(config if config is not None else LLMConfig.from_env()),
+            LLM_OUTPUT_HANDLER: validate_llm_output}

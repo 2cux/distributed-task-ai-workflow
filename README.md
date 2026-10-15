@@ -72,6 +72,8 @@ worker 执行业务及 AI 注册函数。节点支持并行、汇合、输出绑
 Chat Completions API 执行 DAG 节点。回答及输入、输出、总 token 用量随节点结果
 保存到 SQLite，可由下游节点引用，也可通过管理 API 查询。配置通过
 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 环境变量或 `LLMConfig` 注入。
+支持对应的 `APP_LLM_*` 备用配置及完整接口地址；可组合 `llm.validate.v1` 节点
+校验回答完整性和文本格式，上游回答及用量在校验失败后仍保留。
 
 ```powershell
 $env:PYTHONPATH = 'src'

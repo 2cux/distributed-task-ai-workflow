@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -14,12 +16,14 @@ import time
 import unittest
 from unittest.mock import patch
 from urllib.request import Request, build_opener, ProxyHandler
+from urllib.error import URLError
 
 from workflow_engine import (
     DAGNode, DAGWorkflow, LLMConfig, LLMError, LLMHTTPError, LLMResponseError,
     LLMTimeoutError, LLM_HANDLER, NodeStatus, OpenAIChatHandler, OutputRef,
     RemoteWorker, RetryPolicy, TaskEngine, TaskEventType, WorkflowOrchestrator,
     WorkflowStatus, create_llm_registry,
+    LLM_OUTPUT_HANDLER, LLMOutputError, validate_llm_output,
 )
 
 
@@ -44,7 +48,22 @@ class LLMConfigTests(unittest.TestCase):
         self.assertNotIn(SECRET, repr(config))
         self.assertEqual(LLMConfig(SECRET, 'model').timeout, 60)
         with patch.dict(os.environ, {'LLM_API_KEY': SECRET, 'LLM_MODEL': 'model'}, clear=True):
-            self.assertEqual(set(create_llm_registry()), {LLM_HANDLER})
+            self.assertEqual(set(create_llm_registry()), {LLM_HANDLER, LLM_OUTPUT_HANDLER})
+
+    def test_app_environment_full_endpoint_and_explicit_primary_precedence(self):
+        app = dict(APP_LLM_API_KEY=SECRET, APP_LLM_MODEL='app-model',
+                   APP_LLM_BASE_URL='https://models.example/v1/chat/completions/', APP_LLM_TIMEOUT='7')
+        config = LLMConfig.from_env(app)
+        self.assertEqual((config.model, config.base_url, config.timeout),
+                         ('app-model', 'https://models.example/v1', 7))
+        primary = dict(app, LLM_API_KEY='primary-key', LLM_MODEL='primary-model',
+                       LLM_BASE_URL='https://primary.example/v2', LLM_TIMEOUT='9')
+        config = LLMConfig.from_env(primary)
+        self.assertEqual((config.api_key, config.model, config.base_url, config.timeout),
+                         ('primary-key', 'primary-model', 'https://primary.example/v2', 9))
+        for name in ('API_KEY', 'MODEL', 'BASE_URL', 'TIMEOUT'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                LLMConfig.from_env(dict(app, **{'LLM_' + name: ''}))
 
     def test_invalid_config_fails_before_execution_without_echoing_values(self):
         for values in ({}, {'LLM_API_KEY': SECRET}, {'LLM_MODEL': 'model'},
@@ -103,7 +122,7 @@ class HTTPFixture(unittest.TestCase):
         self.base_url = f'http://127.0.0.1:{self.server.server_port}/custom/v1'
         self.config = LLMConfig(SECRET, 'configured-model', self.base_url, timeout=2)
         self.handler = OpenAIChatHandler(self.config)
-        self.registry = {LLM_HANDLER: self.handler}
+        self.registry = {LLM_HANDLER: self.handler, LLM_OUTPUT_HANDLER: validate_llm_output}
 
     def close_server(self):
         self.server.shutdown()
@@ -115,6 +134,25 @@ class HTTPFixture(unittest.TestCase):
 
 
 class LLMHTTPTests(HTTPFixture):
+    def test_full_endpoint_is_normalized_before_real_http_request(self):
+        handler = OpenAIChatHandler(LLMConfig(SECRET, 'model', self.base_url + '/chat/completions/'))
+        handler('hi')
+        self.assertEqual(self.requests[0]['path'], '/custom/v1/chat/completions')
+
+    def test_network_errors_are_classified_without_private_exception_text(self):
+        reasons = [(socket.gaierror(11001, SECRET), 'DNS resolution failed'),
+                   (ssl.SSLCertVerificationError(1, SECRET), 'TLS certificate verification failed'),
+                   (ssl.SSLError(1, SECRET), 'TLS negotiation failed'),
+                   (ConnectionRefusedError(10061, SECRET), 'connection refused'),
+                   (PermissionError(10013, SECRET), 'network access denied')]
+        for reason, expected in reasons:
+            with self.subTest(kind=type(reason).__name__):
+                with patch('workflow_engine.llm.build_opener') as opener:
+                    opener.return_value.open.side_effect = URLError(reason)
+                    with self.assertRaisesRegex(LLMError, expected) as caught:
+                        self.handler('hi')
+                self.assertNotIn(SECRET, str(caught.exception))
+
     def test_real_request_auth_unicode_and_provider_usage(self):
         result = self.handler('介绍 DAG', system_prompt='用中文回答')
         sent = self.requests[0]
@@ -217,6 +255,70 @@ class LLMHTTPTests(HTTPFixture):
 
 
 class LLMDAGTests(HTTPFixture):
+    def test_output_contract_failure_preserves_paid_response_and_skips_business(self):
+        self.registry[LLM_OUTPUT_HANDLER] = validate_llm_output
+        value = completion('42 ')
+        value['choices'][0]['finish_reason'] = 'length'
+        self.replies.append((200, value, {}))
+        engine = self.engine()
+        orchestrator = WorkflowOrchestrator(engine)
+        flow = DAGWorkflow((
+            DAGNode('model', LLM_HANDLER, kwargs={'prompt': 'Return TRACE:42'}),
+            DAGNode('contract', LLM_OUTPUT_HANDLER, kwargs={'expected_text': 'TRACE:42'},
+                    inputs={'result': OutputRef('model')}),
+            DAGNode('business', LLM_HANDLER, kwargs={'prompt': 'must not execute'}, depends_on=('contract',)),
+        ))
+        orchestrator.submit(flow)
+        run = orchestrator.run(flow.id, timeout=5)
+        self.assertEqual(run.status, WorkflowStatus.FAILED)
+        self.assertEqual(run.nodes['model'].status, NodeStatus.SUCCESS)
+        saved = engine.get_task(run.nodes['model'].task_id)
+        self.assertEqual(saved.result['text'], '42 ')
+        self.assertEqual(saved.result['usage']['total_tokens'], 18)
+        self.assertEqual(run.nodes['contract'].status, NodeStatus.FAILED)
+        self.assertIn('LLMOutputError', run.nodes['contract'].error)
+        self.assertNotIn('TRACE:42', run.nodes['contract'].error)
+        self.assertEqual(run.nodes['business'].status, NodeStatus.SKIPPED)
+        self.assertEqual(len(self.requests), 1)
+        reopened = WorkflowOrchestrator(self.engine())
+        self.assertEqual(reopened.run(flow.id, timeout=1), run)
+        self.assertEqual(engine.get_events(saved.id)[-1].details['result'], saved.result)
+        self.assertEqual(len(self.requests), 1)
+
+    def test_remote_worker_runs_output_contract_before_downstream_model(self):
+        self.registry[LLM_OUTPUT_HANDLER] = validate_llm_output
+        engine = self.engine()
+        service = engine.create_recovery_service('contract-rpc-token').start()
+        self.addCleanup(service.shutdown)
+        worker = RemoteWorker(service.url, create_llm_registry(self.config), 'contract-rpc-token',
+                              'contract-remote', poll_interval=.01, heartbeat_interval=.1)
+        self.addCleanup(worker.shutdown, 5)
+        worker.start()
+        flow = DAGWorkflow((DAGNode('draft', LLM_HANDLER, kwargs={'prompt': 'hello'}),
+            DAGNode('contract', LLM_OUTPUT_HANDLER, kwargs={'expected_text': '模型回答'},
+                    inputs={'result': OutputRef('draft')}),
+            DAGNode('review', LLM_HANDLER, inputs={'prompt': OutputRef('contract', ('text',))})))
+        orchestrator = WorkflowOrchestrator(engine)
+        orchestrator.submit(flow)
+        run = orchestrator.run(flow.id, execute=False, timeout=5)
+        self.assertEqual(run.status, WorkflowStatus.SUCCESS)
+        self.assertEqual(run.nodes['contract'].result, run.nodes['draft'].result)
+        self.assertEqual(self.requests[1]['body']['messages'][-1]['content'], '模型回答')
+        self.assertEqual(len(self.requests), 2)
+
+    def test_cli_uses_app_settings_without_validation_script_translation(self):
+        env = {key: value for key, value in os.environ.items() if not key.startswith('LLM_')}
+        env.update(PYTHONPATH=str(ROOT / 'src'), PYTHONIOENCODING='utf-8', APP_LLM_API_KEY=SECRET,
+                   APP_LLM_MODEL='app-cli-model', APP_LLM_BASE_URL=self.base_url + '/chat/completions')
+        result = subprocess.run([sys.executable, '-m', 'workflow_engine.llm_cli',
+                                 '--database', str(self.path), '--prompt', 'hello'],
+                                env=env, capture_output=True, text=True, encoding='utf-8', timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = json.loads(result.stdout)
+        self.assertEqual(value['status'], 'SUCCESS')
+        self.assertEqual(value['nodes']['generate']['result']['requested_model'], 'app-cli-model')
+        self.assertEqual(self.requests[0]['path'], '/custom/v1/chat/completions')
+
     def workflow(self):
         return DAGWorkflow((
             DAGNode('draft', LLM_HANDLER, kwargs={'prompt': '起草一个计划'}),
@@ -329,6 +431,33 @@ class LLMDAGTests(HTTPFixture):
             self.assertEqual(value['nodes']['draft']['result']['requested_model'], 'cli-model')
             self.assertEqual(value['nodes']['review']['result']['usage']['total_tokens'], 18)
         self.assertEqual(len(self.requests), 2)
+
+
+class LLMOutputContractTests(unittest.TestCase):
+    def test_exact_and_pattern_contracts_preserve_result_metadata(self):
+        result = dict(text='TRACE:42', finish_reason='stop', usage={'total_tokens': 18}, response_id='provider-id')
+        self.assertEqual(validate_llm_output(result, expected_text='TRACE:42', pattern=r'TRACE:\d+'), result)
+
+    def test_empty_truncated_and_mismatched_answers_fail_with_safe_messages(self):
+        for result, kwargs in ((dict(text='private-answer', finish_reason='stop'), {'expected_text': SECRET}),
+                               (dict(text='private-answer', finish_reason='stop'), {'pattern': r'\d+'}),
+                               (dict(text='42', finish_reason='length'), {}),
+                               (dict(text='42'), {}), (dict(text='  ', finish_reason='stop'), {})):
+            with self.subTest(result=result), self.assertRaises(LLMOutputError) as caught:
+                validate_llm_output(result, **kwargs)
+            self.assertNotIn('private-answer', str(caught.exception))
+            self.assertNotIn(SECRET, str(caught.exception))
+        # No silent stripping or repair; contracts must opt into whitespace.
+        with self.assertRaises(LLMOutputError):
+            validate_llm_output(dict(text='42\n', finish_reason='stop'), pattern=r'\d+')
+        self.assertEqual(validate_llm_output(dict(text='42', finish_reason='length'), require_stop=False)['text'], '42')
+
+    def test_invalid_contracts_fail_without_echoing_pattern(self):
+        for kwargs in ({'pattern': '[' + SECRET}, {'pattern': 4},
+                       {'expected_text': 42}, {'require_stop': 'yes'}):
+            with self.subTest(keys=list(kwargs)), self.assertRaises(ValueError) as caught:
+                validate_llm_output(dict(text='42', finish_reason='stop'), **kwargs)
+            self.assertNotIn(SECRET, str(caught.exception))
 
 
 if __name__ == '__main__':

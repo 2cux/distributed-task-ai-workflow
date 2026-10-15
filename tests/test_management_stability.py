@@ -6,11 +6,50 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import json
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 
 from management_test_support import ADMIN, READER, ManagementTestCase
 
 
 class ManagementStabilityTests(ManagementTestCase):
+    def test_database_lock_returns_bounded_503_without_late_submission(self):
+        self.start_service(request_timeout=.15)
+        # Hold a real SQLite writer lock beyond the HTTP client's deadline.
+        # Before the fix, write requests could wait for the store's 30s default.
+        with closing(sqlite3.connect(self.path, isolation_level=None)) as blocker:
+            blocker.execute('BEGIN IMMEDIATE')
+            try:
+                started = time.monotonic()
+                with self.assertLogs('workflow_engine.management', level='INFO') as captured:
+                    with ThreadPoolExecutor(3) as pool:
+                        replies = list(pool.map(lambda index: self.call('/api/v1/workflows',
+                            self.workflow('busy-' + str(index)), timeout=2,
+                            headers={'X-Request-ID': 'busy-' + str(index)}), range(3)))
+                self.assertLess(time.monotonic() - started, 1.5)
+                for status, payload, headers in replies:
+                    self.assertEqual(status, 503, payload)
+                    self.assertEqual(headers['Retry-After'], '1')
+                    self.assertNotIn(str(self.path), json.dumps(payload))
+                logs = [json.loads(record.getMessage()) for record in captured.records
+                        if json.loads(record.getMessage()).get('event') == 'http_request']
+                self.assertEqual({record['request_id'] for record in logs}, {'busy-0', 'busy-1', 'busy-2'})
+                self.assertTrue(all(record['failure_kind'] == 'database_busy' for record in logs))
+                self.assertEqual(self.call('/health/live', token=None)[0], 200)
+                self.assertIn('workflow_api_database_busy_total 3\n', self.call('/metrics')[1])
+            finally:
+                blocker.execute('ROLLBACK')
+        self.wait_for(lambda: self.service._server._active == 0)
+        self.assertEqual(self.call('/api/v1/workflows')[1]['items'], [])
+        # The scope is thread-local: ordinary worker writes keep their own policy.
+        with self.engine._store._connection() as db:
+            self.assertEqual(db.execute('PRAGMA busy_timeout').fetchone()[0], 30000)
+        self.assertEqual(self.call('/api/v1/workflows', self.workflow('after-unlock'))[0], 202)
+        self.worker()
+        self.wait_for(lambda: self.call('/api/v1/workflows/after-unlock')[1]['status'] == 'SUCCESS')
+
     def test_rejected_uploads_deliver_errors_without_connection_reset(self):
         self.start_service(max_request_bytes=1024)
         cases = [

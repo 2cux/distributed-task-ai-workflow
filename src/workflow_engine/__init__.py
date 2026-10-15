@@ -33,11 +33,13 @@ from .remote import (RecoveryService, RemoteWorker, RemoteTaskStore,
                      RemoteTransportError, RemoteAuthenticationError)
 from .management import ManagementService
 from .llm import (LLMConfig, LLMError, LLMHTTPError, LLMTimeoutError, LLMResponseError,
+                  LLMOutputError, LLM_OUTPUT_HANDLER, validate_llm_output,
                   OpenAIChatHandler, LLM_HANDLER, create_llm_registry)
 
 __all__ = [
     "LLMConfig", "LLMError", "LLMHTTPError", "LLMTimeoutError", "LLMResponseError",
     "OpenAIChatHandler", "LLM_HANDLER", "create_llm_registry",
+    "LLMOutputError", "LLM_OUTPUT_HANDLER", "validate_llm_output",
     "ManagementService",
     "RecoverySystem", "RecoveryReport", "RecoveryIncident", "RecoveryConflict",
     "RecoveryService", "RemoteWorker", "RemoteTaskStore", "RemoteTransportError", "RemoteAuthenticationError",

@@ -263,6 +263,7 @@ class ManagementService:
                 supplied_id = self.headers.get('X-Request-ID', '')
                 request_id = supplied_id if re.fullmatch(r'[A-Za-z0-9._-]{1,64}', supplied_id) else uuid4().hex
                 route, status = 'unmatched', 500
+                failure_kind = None
                 try:
                     parsed = urlsplit(self.path)
                     if parsed.fragment or parsed.scheme or parsed.netloc or len(parsed.path) > 4096:
@@ -281,8 +282,9 @@ class ManagementService:
                     if any(len(values) != 1 for values in query.values()):
                         raise APIError(400, 'invalid_query', 'query fields cannot repeat')
                     body = self._body() if method == 'POST' else None
-                    status, payload, content_type = service.dispatch(method, parsed.path,
-                        {key: values[0] for key, values in query.items()}, body)
+                    with service.store.connection_timeout(service.request_timeout):
+                        status, payload, content_type = service.dispatch(method, parsed.path,
+                            {key: values[0] for key, values in query.items()}, body)
                     raw = payload.encode('utf-8') if content_type.startswith('text/') else _json(payload).encode('utf-8')
                     if len(raw) > service.max_response_bytes:
                         raise APIError(413, 'response_too_large', 'response exceeds size limit; reduce page size')
@@ -294,7 +296,14 @@ class ManagementService:
                     status, raw, content_type = self._error(409, 'conflict', 'definition or recovery state conflicts', request_id)
                 except (ValueError, TypeError, RecursionError, UnicodeError):
                     status, raw, content_type = self._error(400, 'invalid_request', 'invalid JSON or workflow definition', request_id)
-                except (sqlite3.Error, PersistenceError, TimeoutError):
+                except sqlite3.Error as error:
+                    code = getattr(error, 'sqlite_errorcode', 0)
+                    busy = (code & 255) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+                    failure_kind = 'database_busy' if busy else 'database_error'
+                    if busy:
+                        service.metrics.database_busy()
+                    status, raw, content_type = self._error(503, 'unavailable', 'control plane temporarily unavailable', request_id)
+                except (PersistenceError, TimeoutError):
                     status, raw, content_type = self._error(503, 'unavailable', 'control plane temporarily unavailable', request_id)
                 except Exception:
                     status, raw, content_type = self._error(500, 'internal_error', 'request failed', request_id)
@@ -323,7 +332,8 @@ class ManagementService:
                     elapsed = time.perf_counter() - started
                     service.metrics.observe(method, route, status, elapsed)
                     logger.info(json.dumps(dict(event='http_request', request_id=request_id,
-                        method=method, route=route, status=status, duration_seconds=round(elapsed, 6))))
+                        method=method, route=route, status=status, failure_kind=failure_kind,
+                        duration_seconds=round(elapsed, 6))))
 
             @staticmethod
             def _error(status, code, message, request_id):
