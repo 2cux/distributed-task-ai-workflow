@@ -1,0 +1,1222 @@
+{
+  "started_at": "2026-10-16T04:26:42.824287+00:00",
+  "results": [
+    {
+      "scenario": "network",
+      "status": "passed",
+      "project": "workflow-fault-10697ab26d8f",
+      "isolation": "docker-network-namespaces",
+      "center_container": "36009b6a65af8c2dcf92d26e031a4a4e078bb26b9bca9a7df675076dfb750bef",
+      "docker_engine_version": "29.1.2",
+      "image_id": "sha256:c3498f1e614476c4dc74354a81ec5afe99f0c268e428120d18d7c0bf7e8a1e96",
+      "worker_container": "f146cbd096d16b7940bf703e6c3024356cb6f5bcde7376ae13f6945464a3e46e",
+      "network": "workflow-fault-10697ab26d8f_control",
+      "stop_proof": {
+        "container_id": "f146cbd096d16b7940bf703e6c3024356cb6f5bcde7376ae13f6945464a3e46e",
+        "session_id": "0c1aa874bdc142d9accf91d933c00b24",
+        "finished_at": "2026-10-16T04:26:58.167857002Z",
+        "exit_code": 1
+      },
+      "isolation_evidence": {
+        "center_hostname": "36009b6a65af",
+        "worker_hostname": "f146cbd096d1",
+        "center_network_namespace": "42549850c40984418fdd8cb4678ede8ff685e8eb7398e4567c07ce73f093e759",
+        "worker_network_namespace": "bfffe81bf525f7a1b745a825707178a744a41d37bc1d9272d3e250b3ab187d3e",
+        "center_kernel_network_namespace": "net:[4026532765]",
+        "worker_kernel_network_namespace": "net:[4026532842]",
+        "worker_mounts": []
+      },
+      "workflow": {
+        "definition": {
+          "id": "network",
+          "name": "isolated-fault-probe",
+          "nodes": [
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.echo.v1",
+              "id": "prepare",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "context"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [
+                "prepare"
+              ],
+              "handler": "probe.echo.v1",
+              "id": "generate",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "answer"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.summarize.v1",
+              "id": "validate",
+              "idempotent": true,
+              "inputs": {
+                "item": {
+                  "node_id": "generate",
+                  "path": []
+                }
+              },
+              "kwargs": {},
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            }
+          ]
+        },
+        "holds": [],
+        "id": "network",
+        "llm_budget": {
+          "blocked": false,
+          "limits": {
+            "max_calls": null,
+            "max_total_tokens": null
+          },
+          "reason": null,
+          "remaining_calls": null,
+          "remaining_total_tokens": null,
+          "waiting_for_usage": false
+        },
+        "llm_usage": {
+          "call_count": 0,
+          "completion_tokens": 0,
+          "failed_calls": 0,
+          "failure_rate": 0.0,
+          "missing_usage_calls": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          },
+          "prompt_tokens": 0,
+          "running_calls": 0,
+          "successful_calls": 0,
+          "total_tokens": 0,
+          "unknown_outcome_calls": 0,
+          "unknown_usage_calls": 0,
+          "usage_complete": true
+        },
+        "name": "isolated-fault-probe",
+        "nodes": [
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "prepare",
+            "result": {
+              "host": "f146cbd096d1",
+              "pid": 1,
+              "value": "context"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-414723e2778956f18b49a96f977177f4",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 2,
+            "error": null,
+            "id": "generate",
+            "result": {
+              "host": "96dc986b343a",
+              "pid": 1,
+              "value": "answer"
+            },
+            "retry_count": 1,
+            "status": "SUCCESS",
+            "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "validate",
+            "result": {
+              "answer": "verified:answer",
+              "host": "96dc986b343a",
+              "source_host": "96dc986b343a"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-75b2043d2ddd5d788eef4db3fe51f5e2",
+            "task_status": "SUCCESS"
+          }
+        ],
+        "status": "SUCCESS"
+      },
+      "task_events": [
+        {
+          "attempt_count": 0,
+          "cursor": 1,
+          "details": {
+            "name": "generate"
+          },
+          "event_type": "CREATED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 1,
+          "status": "PENDING",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:52.846041+00:00"
+        },
+        {
+          "attempt_count": 0,
+          "cursor": 2,
+          "details": {
+            "priority": 0,
+            "retry_limit": 1,
+            "scheduled_at": null
+          },
+          "event_type": "SUBMITTED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 2,
+          "status": "PENDING",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:52.846117+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 3,
+          "details": {
+            "owner": "c37c1e7b570c4a018f655f2ea4f828a1",
+            "worker_session": "0c1aa874bdc142d9accf91d933c00b24"
+          },
+          "event_type": "STARTED",
+          "previous_status": "PENDING",
+          "retry_count": 0,
+          "sequence": 3,
+          "status": "RUNNING",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:52.988813+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 4,
+          "details": {
+            "error_message": "进程中断，业务执行结果不确定",
+            "error_type": "UncertainExecutionError",
+            "owner": "c37c1e7b570c4a018f655f2ea4f828a1",
+            "worker_session": "0c1aa874bdc142d9accf91d933c00b24"
+          },
+          "event_type": "INTERRUPTED",
+          "previous_status": "RUNNING",
+          "retry_count": 0,
+          "sequence": 4,
+          "status": "FAILED",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:58.152797+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 5,
+          "details": {
+            "reason": "interrupted recovery",
+            "retry_at": null,
+            "retry_delay": 0.0,
+            "retry_limit": 1
+          },
+          "event_type": "RETRY_SCHEDULED",
+          "previous_status": "FAILED",
+          "retry_count": 1,
+          "sequence": 5,
+          "status": "RETRYING",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:58.152855+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 6,
+          "details": {
+            "owner": "fbfd279e44ee45878690d6854ced9354",
+            "worker_session": "0f2b2664493f46829ba66e198c8aaf37"
+          },
+          "event_type": "STARTED",
+          "previous_status": "RETRYING",
+          "retry_count": 1,
+          "sequence": 6,
+          "status": "RUNNING",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:58.197790+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 7,
+          "details": {
+            "owner": "fbfd279e44ee45878690d6854ced9354",
+            "result": {
+              "host": "96dc986b343a",
+              "pid": 1,
+              "value": "answer"
+            }
+          },
+          "event_type": "SUCCEEDED",
+          "previous_status": "RUNNING",
+          "retry_count": 1,
+          "sequence": 7,
+          "status": "SUCCESS",
+          "task_id": "dag-25cde55200d15f8e979d0eed4208beac",
+          "timestamp": "2026-10-16T04:26:58.204814+00:00"
+        }
+      ],
+      "session_events": [
+        {
+          "cursor": 1,
+          "reason": "registered",
+          "sequence": 1,
+          "session_id": "0c1aa874bdc142d9accf91d933c00b24",
+          "state": "ACTIVE",
+          "timestamp": 1792124811.1106405
+        },
+        {
+          "cursor": 2,
+          "reason": "recovery coordinator: heartbeat overdue",
+          "sequence": 2,
+          "session_id": "0c1aa874bdc142d9accf91d933c00b24",
+          "state": "SUSPECT",
+          "timestamp": 1792124815.4364579
+        },
+        {
+          "cursor": 3,
+          "reason": "recovery coordinator revoked database writes",
+          "sequence": 3,
+          "session_id": "0c1aa874bdc142d9accf91d933c00b24",
+          "state": "FENCED",
+          "timestamp": 1792124815.4365182
+        },
+        {
+          "cursor": 5,
+          "reason": "runtime drained all business invocations",
+          "sequence": 5,
+          "session_id": "0c1aa874bdc142d9accf91d933c00b24",
+          "state": "STOPPED",
+          "timestamp": 1792124818.1004174
+        }
+      ],
+      "new_incarnation": null
+    },
+    {
+      "scenario": "crash",
+      "status": "passed",
+      "project": "workflow-fault-42fd224b7ff7",
+      "isolation": "docker-network-namespaces",
+      "center_container": "06c8e78596d73d7a7a8ecadaf94cab79f4cd2eb01a6f2cdf28e7261314039184",
+      "docker_engine_version": "29.1.2",
+      "image_id": "sha256:d2a8d415edf2cae7f350097cbda6ab6b31d49c28c0924cc2e025989d0aecc94d",
+      "worker_container": "f5887283c17d6f8cf21ac40868f221f3653352ea0347ef24e05d1d091391e3e2",
+      "network": "workflow-fault-42fd224b7ff7_control",
+      "stop_proof": {
+        "container_id": "f5887283c17d6f8cf21ac40868f221f3653352ea0347ef24e05d1d091391e3e2",
+        "session_id": "5e093b0dbd434baa90dad34ce5772775",
+        "finished_at": "2026-10-16T04:27:17.458821451Z",
+        "exit_code": 137
+      },
+      "isolation_evidence": {
+        "center_hostname": "06c8e78596d7",
+        "worker_hostname": "f5887283c17d",
+        "center_network_namespace": "ad17ae06c478cc3e84849fb988880973c15d56d28f19da81e089b33d2b24be4e",
+        "worker_network_namespace": "ea16e83474aab0cce312b231caa154960a112144cd813a15ee8e40defa875e69",
+        "center_kernel_network_namespace": "net:[4026532765]",
+        "worker_kernel_network_namespace": "net:[4026532842]",
+        "worker_mounts": []
+      },
+      "workflow": {
+        "definition": {
+          "id": "crash",
+          "name": "isolated-fault-probe",
+          "nodes": [
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.echo.v1",
+              "id": "prepare",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "context"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [
+                "prepare"
+              ],
+              "handler": "probe.echo.v1",
+              "id": "generate",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "answer"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.summarize.v1",
+              "id": "validate",
+              "idempotent": true,
+              "inputs": {
+                "item": {
+                  "node_id": "generate",
+                  "path": []
+                }
+              },
+              "kwargs": {},
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            }
+          ]
+        },
+        "holds": [],
+        "id": "crash",
+        "llm_budget": {
+          "blocked": false,
+          "limits": {
+            "max_calls": null,
+            "max_total_tokens": null
+          },
+          "reason": null,
+          "remaining_calls": null,
+          "remaining_total_tokens": null,
+          "waiting_for_usage": false
+        },
+        "llm_usage": {
+          "call_count": 0,
+          "completion_tokens": 0,
+          "failed_calls": 0,
+          "failure_rate": 0.0,
+          "missing_usage_calls": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          },
+          "prompt_tokens": 0,
+          "running_calls": 0,
+          "successful_calls": 0,
+          "total_tokens": 0,
+          "unknown_outcome_calls": 0,
+          "unknown_usage_calls": 0,
+          "usage_complete": true
+        },
+        "name": "isolated-fault-probe",
+        "nodes": [
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "prepare",
+            "result": {
+              "host": "f5887283c17d",
+              "pid": 1,
+              "value": "context"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-10143efced52502d92af41e53d29d1e7",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 2,
+            "error": null,
+            "id": "generate",
+            "result": {
+              "host": "4b5ff51467b0",
+              "pid": 1,
+              "value": "answer"
+            },
+            "retry_count": 1,
+            "status": "SUCCESS",
+            "task_id": "dag-270314607d745781a8b340e2627a3a53",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "validate",
+            "result": {
+              "answer": "verified:answer",
+              "host": "4b5ff51467b0",
+              "source_host": "4b5ff51467b0"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-f5a3e6e644615da7998d62c98866d8cd",
+            "task_status": "SUCCESS"
+          }
+        ],
+        "status": "SUCCESS"
+      },
+      "task_events": [
+        {
+          "attempt_count": 0,
+          "cursor": 1,
+          "details": {
+            "name": "generate"
+          },
+          "event_type": "CREATED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 1,
+          "status": "PENDING",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:15.805442+00:00"
+        },
+        {
+          "attempt_count": 0,
+          "cursor": 2,
+          "details": {
+            "priority": 0,
+            "retry_limit": 1,
+            "scheduled_at": null
+          },
+          "event_type": "SUBMITTED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 2,
+          "status": "PENDING",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:15.805575+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 3,
+          "details": {
+            "owner": "b311b88842ef42759c5efe2d4f13249a",
+            "worker_session": "5e093b0dbd434baa90dad34ce5772775"
+          },
+          "event_type": "STARTED",
+          "previous_status": "PENDING",
+          "retry_count": 0,
+          "sequence": 3,
+          "status": "RUNNING",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:15.957609+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 4,
+          "details": {
+            "error_message": "进程中断，业务执行结果不确定",
+            "error_type": "UncertainExecutionError",
+            "owner": "b311b88842ef42759c5efe2d4f13249a",
+            "worker_session": "5e093b0dbd434baa90dad34ce5772775"
+          },
+          "event_type": "INTERRUPTED",
+          "previous_status": "RUNNING",
+          "retry_count": 0,
+          "sequence": 4,
+          "status": "FAILED",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:21.541874+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 5,
+          "details": {
+            "reason": "interrupted recovery",
+            "retry_at": null,
+            "retry_delay": 0.0,
+            "retry_limit": 1
+          },
+          "event_type": "RETRY_SCHEDULED",
+          "previous_status": "FAILED",
+          "retry_count": 1,
+          "sequence": 5,
+          "status": "RETRYING",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:21.541927+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 6,
+          "details": {
+            "owner": "975fe89416764f2db35c4b43bf3fc324",
+            "worker_session": "ec115269edef46848ea72d07ca5f55f8"
+          },
+          "event_type": "STARTED",
+          "previous_status": "RETRYING",
+          "retry_count": 1,
+          "sequence": 6,
+          "status": "RUNNING",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:21.573292+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 7,
+          "details": {
+            "owner": "975fe89416764f2db35c4b43bf3fc324",
+            "result": {
+              "host": "4b5ff51467b0",
+              "pid": 1,
+              "value": "answer"
+            }
+          },
+          "event_type": "SUCCEEDED",
+          "previous_status": "RUNNING",
+          "retry_count": 1,
+          "sequence": 7,
+          "status": "SUCCESS",
+          "task_id": "dag-270314607d745781a8b340e2627a3a53",
+          "timestamp": "2026-10-16T04:27:21.582739+00:00"
+        }
+      ],
+      "session_events": [
+        {
+          "cursor": 1,
+          "reason": "registered",
+          "sequence": 1,
+          "session_id": "5e093b0dbd434baa90dad34ce5772775",
+          "state": "ACTIVE",
+          "timestamp": 1792124833.982955
+        },
+        {
+          "cursor": 2,
+          "reason": "recovery coordinator: heartbeat overdue",
+          "sequence": 2,
+          "session_id": "5e093b0dbd434baa90dad34ce5772775",
+          "state": "SUSPECT",
+          "timestamp": 1792124838.434869
+        },
+        {
+          "cursor": 3,
+          "reason": "recovery coordinator revoked database writes",
+          "sequence": 3,
+          "session_id": "5e093b0dbd434baa90dad34ce5772775",
+          "state": "FENCED",
+          "timestamp": 1792124838.4349313
+        },
+        {
+          "cursor": 5,
+          "reason": "{\"container_id\": \"f5887283c17d6f8cf21ac40868f221f3653352ea0347ef24e05d1d091391e3e2\", \"session_id\": \"5e093b0dbd434baa90dad34ce5772775\", \"finished_at\": \"2026-10-16T04:27:17.458821451Z\", \"exit_code\": 137}",
+          "sequence": 5,
+          "session_id": "5e093b0dbd434baa90dad34ce5772775",
+          "state": "STOPPED",
+          "timestamp": 1792124841.4741461
+        }
+      ],
+      "new_incarnation": null
+    },
+    {
+      "scenario": "stale",
+      "status": "passed",
+      "project": "workflow-fault-9778085c4585",
+      "isolation": "docker-network-namespaces",
+      "center_container": "da87f079351e5902ebb285a97fba8c09af3ea252f2bc218f4f3e02a94ef02d33",
+      "docker_engine_version": "29.1.2",
+      "image_id": "sha256:e626c197ddacb04790e573c15d851af9c0cfb24b110ebe7286f2acfbd2b75d38",
+      "worker_container": "e54824fc593bec35d0bb5c4c8c6c221c41c3a39464b6a7ab426cbc7a4c0e466d",
+      "network": "workflow-fault-9778085c4585_control",
+      "stop_proof": {
+        "container_id": "e54824fc593bec35d0bb5c4c8c6c221c41c3a39464b6a7ab426cbc7a4c0e466d",
+        "session_id": "8baa08341e4845dc8f728bce29c99e5b",
+        "finished_at": "2026-10-16T04:27:43.169467211Z",
+        "exit_code": 1
+      },
+      "isolation_evidence": {
+        "center_hostname": "da87f079351e",
+        "worker_hostname": "e54824fc593b",
+        "center_network_namespace": "7941e9e50e989ca3909ead6990b479e995289aea12cbc94b9b1098e328180b64",
+        "worker_network_namespace": "f1a7beccdb4af0ca5f4f32ab2119a4525ddb79d810e276b41051049776d8b01c",
+        "center_kernel_network_namespace": "net:[4026532765]",
+        "worker_kernel_network_namespace": "net:[4026532842]",
+        "worker_mounts": []
+      },
+      "workflow": {
+        "definition": {
+          "id": "stale",
+          "name": "isolated-fault-probe",
+          "nodes": [
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.echo.v1",
+              "id": "prepare",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "context"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [
+                "prepare"
+              ],
+              "handler": "probe.echo.v1",
+              "id": "generate",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "answer"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.summarize.v1",
+              "id": "validate",
+              "idempotent": true,
+              "inputs": {
+                "item": {
+                  "node_id": "generate",
+                  "path": []
+                }
+              },
+              "kwargs": {},
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            }
+          ]
+        },
+        "holds": [],
+        "id": "stale",
+        "llm_budget": {
+          "blocked": false,
+          "limits": {
+            "max_calls": null,
+            "max_total_tokens": null
+          },
+          "reason": null,
+          "remaining_calls": null,
+          "remaining_total_tokens": null,
+          "waiting_for_usage": false
+        },
+        "llm_usage": {
+          "call_count": 0,
+          "completion_tokens": 0,
+          "failed_calls": 0,
+          "failure_rate": 0.0,
+          "missing_usage_calls": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          },
+          "prompt_tokens": 0,
+          "running_calls": 0,
+          "successful_calls": 0,
+          "total_tokens": 0,
+          "unknown_outcome_calls": 0,
+          "unknown_usage_calls": 0,
+          "usage_complete": true
+        },
+        "name": "isolated-fault-probe",
+        "nodes": [
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "prepare",
+            "result": {
+              "host": "e54824fc593b",
+              "pid": 1,
+              "value": "context"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-9bbda146def55f098d2145cb8e0fa582",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 2,
+            "error": null,
+            "id": "generate",
+            "result": {
+              "host": "dbaef639b468",
+              "pid": 1,
+              "value": "answer"
+            },
+            "retry_count": 1,
+            "status": "SUCCESS",
+            "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "validate",
+            "result": {
+              "answer": "verified:answer",
+              "host": "dbaef639b468",
+              "source_host": "dbaef639b468"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-3d5e4c69be0d5b1ca443abf3d91376ac",
+            "task_status": "SUCCESS"
+          }
+        ],
+        "status": "SUCCESS"
+      },
+      "task_events": [
+        {
+          "attempt_count": 0,
+          "cursor": 1,
+          "details": {
+            "name": "generate"
+          },
+          "event_type": "CREATED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 1,
+          "status": "PENDING",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:37.149144+00:00"
+        },
+        {
+          "attempt_count": 0,
+          "cursor": 2,
+          "details": {
+            "priority": 0,
+            "retry_limit": 1,
+            "scheduled_at": null
+          },
+          "event_type": "SUBMITTED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 2,
+          "status": "PENDING",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:37.149345+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 3,
+          "details": {
+            "owner": "daf30e95a2c44f1a978c9438058da010",
+            "worker_session": "8baa08341e4845dc8f728bce29c99e5b"
+          },
+          "event_type": "STARTED",
+          "previous_status": "PENDING",
+          "retry_count": 0,
+          "sequence": 3,
+          "status": "RUNNING",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:37.341036+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 4,
+          "details": {
+            "error_message": "进程中断，业务执行结果不确定",
+            "error_type": "UncertainExecutionError",
+            "owner": "daf30e95a2c44f1a978c9438058da010",
+            "worker_session": "8baa08341e4845dc8f728bce29c99e5b"
+          },
+          "event_type": "INTERRUPTED",
+          "previous_status": "RUNNING",
+          "retry_count": 0,
+          "sequence": 4,
+          "status": "FAILED",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:43.141490+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 5,
+          "details": {
+            "reason": "interrupted recovery",
+            "retry_at": null,
+            "retry_delay": 0.0,
+            "retry_limit": 1
+          },
+          "event_type": "RETRY_SCHEDULED",
+          "previous_status": "FAILED",
+          "retry_count": 1,
+          "sequence": 5,
+          "status": "RETRYING",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:43.141579+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 6,
+          "details": {
+            "owner": "8c3acdab12084dea80d33cb3d83ca6dc",
+            "worker_session": "7188ba4fc17b4c488a5cc0cbd8535985"
+          },
+          "event_type": "STARTED",
+          "previous_status": "RETRYING",
+          "retry_count": 1,
+          "sequence": 6,
+          "status": "RUNNING",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:43.187326+00:00"
+        },
+        {
+          "attempt_count": 2,
+          "cursor": 7,
+          "details": {
+            "owner": "8c3acdab12084dea80d33cb3d83ca6dc",
+            "result": {
+              "host": "dbaef639b468",
+              "pid": 1,
+              "value": "answer"
+            }
+          },
+          "event_type": "SUCCEEDED",
+          "previous_status": "RUNNING",
+          "retry_count": 1,
+          "sequence": 7,
+          "status": "SUCCESS",
+          "task_id": "dag-db29fb8d55735a32bcb8f9e630a5d81f",
+          "timestamp": "2026-10-16T04:27:43.201344+00:00"
+        }
+      ],
+      "session_events": [
+        {
+          "cursor": 1,
+          "reason": "registered",
+          "sequence": 1,
+          "session_id": "8baa08341e4845dc8f728bce29c99e5b",
+          "state": "ACTIVE",
+          "timestamp": 1792124855.3529794
+        },
+        {
+          "cursor": 2,
+          "reason": "recovery coordinator: heartbeat overdue",
+          "sequence": 2,
+          "session_id": "8baa08341e4845dc8f728bce29c99e5b",
+          "state": "SUSPECT",
+          "timestamp": 1792124859.9403443
+        },
+        {
+          "cursor": 3,
+          "reason": "recovery coordinator revoked database writes",
+          "sequence": 3,
+          "session_id": "8baa08341e4845dc8f728bce29c99e5b",
+          "state": "FENCED",
+          "timestamp": 1792124859.940418
+        },
+        {
+          "cursor": 5,
+          "reason": "runtime drained all business invocations",
+          "sequence": 5,
+          "session_id": "8baa08341e4845dc8f728bce29c99e5b",
+          "state": "STOPPED",
+          "timestamp": 1792124863.0944102
+        }
+      ],
+      "new_incarnation": {
+        "heartbeat_timeout": 1.0,
+        "host_id": "797cedecd7a2",
+        "last_heartbeat_at": 1792124867.2271895,
+        "session_id": "98e3e2039be847e0a81b8875f95bb2bd",
+        "state": "ACTIVE",
+        "stop_requested": 0,
+        "stopped_evidence": null,
+        "worker_id": "victim"
+      }
+    },
+    {
+      "scenario": "non-idempotent",
+      "status": "passed",
+      "project": "workflow-fault-b66fdb2cabe1",
+      "isolation": "docker-network-namespaces",
+      "center_container": "26d492bf0981d567a38bc5adced9957fe4645b2333da7c7cd3bcb675ee3add2b",
+      "docker_engine_version": "29.1.2",
+      "image_id": "sha256:0fa4fb85d632657390f1692f5ddccaae5f6e5a2e60b73c663044add5289d6df3",
+      "worker_container": "75c04a98d86019492cb7f169af88e3b9a5e1a0a1c736413b6f3edc8d493b8c22",
+      "network": "workflow-fault-b66fdb2cabe1_control",
+      "stop_proof": {
+        "container_id": "75c04a98d86019492cb7f169af88e3b9a5e1a0a1c736413b6f3edc8d493b8c22",
+        "session_id": "a2c89a18e8a1440a8fd1561f8dd779a3",
+        "finished_at": "2026-10-16T04:28:03.779143018Z",
+        "exit_code": 137
+      },
+      "isolation_evidence": {
+        "center_hostname": "26d492bf0981",
+        "worker_hostname": "75c04a98d860",
+        "center_network_namespace": "d7b2c17b08f78d1a52471a70a61ff07d5f85e71f2a838fb980f25f71fe1294ef",
+        "worker_network_namespace": "4a629d6302b0698dc10bf33a5d9b7ae7787fc62d9e1011a68024c26da78e577a",
+        "center_kernel_network_namespace": "net:[4026532765]",
+        "worker_kernel_network_namespace": "net:[4026532910]",
+        "worker_mounts": []
+      },
+      "workflow": {
+        "definition": {
+          "id": "non-idempotent",
+          "name": "isolated-fault-probe",
+          "nodes": [
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.echo.v1",
+              "id": "prepare",
+              "idempotent": true,
+              "inputs": {},
+              "kwargs": {
+                "value": "context"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [
+                "prepare"
+              ],
+              "handler": "probe.echo.v1",
+              "id": "generate",
+              "idempotent": false,
+              "inputs": {},
+              "kwargs": {
+                "value": "answer"
+              },
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            },
+            {
+              "args": [],
+              "depends_on": [],
+              "handler": "probe.summarize.v1",
+              "id": "validate",
+              "idempotent": true,
+              "inputs": {
+                "item": {
+                  "node_id": "generate",
+                  "path": []
+                }
+              },
+              "kwargs": {},
+              "max_retries": null,
+              "priority": 0,
+              "scheduled_at": null,
+              "timeout": null
+            }
+          ]
+        },
+        "holds": [],
+        "id": "non-idempotent",
+        "llm_budget": {
+          "blocked": false,
+          "limits": {
+            "max_calls": null,
+            "max_total_tokens": null
+          },
+          "reason": null,
+          "remaining_calls": null,
+          "remaining_total_tokens": null,
+          "waiting_for_usage": false
+        },
+        "llm_usage": {
+          "call_count": 0,
+          "completion_tokens": 0,
+          "failed_calls": 0,
+          "failure_rate": 0.0,
+          "missing_usage_calls": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          },
+          "prompt_tokens": 0,
+          "running_calls": 0,
+          "successful_calls": 0,
+          "total_tokens": 0,
+          "unknown_outcome_calls": 0,
+          "unknown_usage_calls": 0,
+          "usage_complete": true
+        },
+        "name": "isolated-fault-probe",
+        "nodes": [
+          {
+            "attempt_count": 1,
+            "error": null,
+            "id": "prepare",
+            "result": {
+              "host": "75c04a98d860",
+              "pid": 1,
+              "value": "context"
+            },
+            "retry_count": 0,
+            "status": "SUCCESS",
+            "task_id": "dag-815baca88ec1510a953863cf52e11764",
+            "task_status": "SUCCESS"
+          },
+          {
+            "attempt_count": 1,
+            "error": {
+              "message": "进程中断，业务执行结果不确定",
+              "type": "UncertainExecutionError"
+            },
+            "id": "generate",
+            "result": null,
+            "retry_count": 0,
+            "status": "FAILED",
+            "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+            "task_status": "FAILED"
+          },
+          {
+            "attempt_count": 0,
+            "error": "dependency failed or was skipped",
+            "id": "validate",
+            "result": null,
+            "retry_count": 0,
+            "status": "SKIPPED",
+            "task_id": "dag-6a11d1bc20965d65a2a1751095ab5444",
+            "task_status": "PENDING"
+          }
+        ],
+        "status": "FAILED"
+      },
+      "task_events": [
+        {
+          "attempt_count": 0,
+          "cursor": 1,
+          "details": {
+            "name": "generate"
+          },
+          "event_type": "CREATED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 1,
+          "status": "PENDING",
+          "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+          "timestamp": "2026-10-16T04:28:02.365335+00:00"
+        },
+        {
+          "attempt_count": 0,
+          "cursor": 2,
+          "details": {
+            "priority": 0,
+            "retry_limit": 1,
+            "scheduled_at": null
+          },
+          "event_type": "SUBMITTED",
+          "previous_status": null,
+          "retry_count": 0,
+          "sequence": 2,
+          "status": "PENDING",
+          "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+          "timestamp": "2026-10-16T04:28:02.365396+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 3,
+          "details": {
+            "owner": "0dcdc7f95cb8420e9095badeb9337693",
+            "worker_session": "a2c89a18e8a1440a8fd1561f8dd779a3"
+          },
+          "event_type": "STARTED",
+          "previous_status": "PENDING",
+          "retry_count": 0,
+          "sequence": 3,
+          "status": "RUNNING",
+          "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+          "timestamp": "2026-10-16T04:28:02.516833+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 4,
+          "details": {
+            "error_message": "进程中断，业务执行结果不确定",
+            "error_type": "UncertainExecutionError",
+            "owner": "0dcdc7f95cb8420e9095badeb9337693",
+            "worker_session": "a2c89a18e8a1440a8fd1561f8dd779a3"
+          },
+          "event_type": "INTERRUPTED",
+          "previous_status": "RUNNING",
+          "retry_count": 0,
+          "sequence": 4,
+          "status": "FAILED",
+          "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+          "timestamp": "2026-10-16T04:28:07.154620+00:00"
+        },
+        {
+          "attempt_count": 1,
+          "cursor": 5,
+          "details": {
+            "action": "fail",
+            "extra_retries": 0,
+            "incident_id": "7068fc0886544be48a7cc44859114854",
+            "operator": "docker-lab-supervisor",
+            "reason": "accept uncertain probe failure; never replay non-idempotent work",
+            "result": null
+          },
+          "event_type": "MANUAL_RESOLUTION",
+          "previous_status": "FAILED",
+          "retry_count": 0,
+          "sequence": 5,
+          "status": "FAILED",
+          "task_id": "dag-e7a3aa5012da5d9aab914792edd477ec",
+          "timestamp": "2026-10-16T04:28:07.310966+00:00"
+        }
+      ],
+      "session_events": [
+        {
+          "cursor": 1,
+          "reason": "registered",
+          "sequence": 1,
+          "session_id": "a2c89a18e8a1440a8fd1561f8dd779a3",
+          "state": "ACTIVE",
+          "timestamp": 1792124880.7145276
+        },
+        {
+          "cursor": 2,
+          "reason": "recovery coordinator: heartbeat overdue",
+          "sequence": 2,
+          "session_id": "a2c89a18e8a1440a8fd1561f8dd779a3",
+          "state": "SUSPECT",
+          "timestamp": 1792124884.7451105
+        },
+        {
+          "cursor": 3,
+          "reason": "recovery coordinator revoked database writes",
+          "sequence": 3,
+          "session_id": "a2c89a18e8a1440a8fd1561f8dd779a3",
+          "state": "FENCED",
+          "timestamp": 1792124884.7451587
+        },
+        {
+          "cursor": 5,
+          "reason": "{\"container_id\": \"75c04a98d86019492cb7f169af88e3b9a5e1a0a1c736413b6f3edc8d493b8c22\", \"session_id\": \"a2c89a18e8a1440a8fd1561f8dd779a3\", \"finished_at\": \"2026-10-16T04:28:03.779143018Z\", \"exit_code\": 137}",
+          "sequence": 5,
+          "session_id": "a2c89a18e8a1440a8fd1561f8dd779a3",
+          "state": "STOPPED",
+          "timestamp": 1792124887.0660062
+        }
+      ],
+      "new_incarnation": null
+    }
+  ],
+  "status": "passed"
+}

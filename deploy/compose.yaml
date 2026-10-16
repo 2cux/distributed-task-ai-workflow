@@ -1,0 +1,51 @@
+# Isolated fault-injection lab. For physical hosts use the TLS CLI in the guide.
+x-worker: &worker
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  environment:
+    WORKFLOW_RECOVERY_TOKEN: ${WORKFLOW_RECOVERY_TOKEN:?set a recovery token}
+  networks: [control]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: "no"
+  profiles: [workers]
+  depends_on:
+    central:
+      condition: service_healthy
+
+services:
+  central:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: [central, --database, /data/workflow.db, --handlers, probe.echo.v1, probe.summarize.v1, --host, 0.0.0.0, --allow-insecure]
+    environment:
+      WORKFLOW_RECOVERY_TOKEN: ${WORKFLOW_RECOVERY_TOKEN:?set a recovery token}
+      WORKFLOW_API_TOKEN: ${WORKFLOW_API_TOKEN:?set a distinct API token}
+    volumes: [central-data:/data]
+    networks: [control, access]
+    ports: ["127.0.0.1::8080", "127.0.0.1::8090"]
+    restart: "no"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=2)"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  victim:
+    <<: *worker
+    environment:
+      WORKFLOW_RECOVERY_TOKEN: ${WORKFLOW_RECOVERY_TOKEN:?set a recovery token}
+      WORKFLOW_PROBE_GATE: "1"
+    command: [worker, --server, "http://central:8090", --registry, "workflow_engine.deployment_demo:create_registry", --worker-id, victim, --heartbeat-interval, "0.1", --heartbeat-timeout, "1", --request-timeout, "0.3"]
+  replacement:
+    <<: *worker
+    command: [worker, --server, "http://central:8090", --registry, "workflow_engine.deployment_demo:create_registry", --worker-id, replacement, --heartbeat-interval, "0.1", --heartbeat-timeout, "1", --request-timeout, "0.3"]
+
+networks:
+  control:
+    internal: true
+  access:
+    driver: bridge
+volumes:
+  central-data:

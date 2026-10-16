@@ -12,6 +12,7 @@ dependencies = []
 [project.scripts]
 workflow-management = "workflow_engine.management:main"
 workflow-llm = "workflow_engine.llm_cli:main"
+workflow-deploy = "workflow_engine.deployment:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

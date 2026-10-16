@@ -262,6 +262,10 @@ pickle、不从数据库动态导入代码。注册名称应随业务版本区�
 
 ## 独立故障恢复系统
 
+可执行的双主机 TLS 部署入口、独立容器部署、真实断网/强杀/旧会话撤权演练及独立测试见
+[跨主机部署与故障注入](docs/cross_host_deployment.md)。一键容器验收：
+`python tools/validate_cross_host.py --scenario all`。
+
 持久化模式通过 `engine.create_recovery_system(interval=1, stop_verifier=..., fence_after=0)`
 创建独立恢复控制面，显式 `start()` 后自动观察心跳、撤权、等待可信停止证明，再按
 持久化幂等声明和预算恢复中断任务，并协调 DAG 继续执行。多个协调器通过短事务

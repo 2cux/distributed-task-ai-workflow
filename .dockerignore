@@ -1,0 +1,7 @@
+**
+!src/
+!src/**
+!deploy/
+!deploy/Dockerfile
+**/__pycache__/
+**/*.py[cod]

@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="deployment-cases-from-final-full-run" tests="15" failures="0" errors="0" skipped="0" time="97.006" timestamp="2026-10-16T12:32:39.576943+08:00" hostname="LAPTOP-598DOPCF">
+    <testcase classname="tests.test_deployment_containers.IsolatedContainerDeploymentTests" name="test_non_idempotent_crash_never_replays" time="19.617" />
+    <testcase classname="tests.test_deployment_containers.IsolatedContainerDeploymentTests" name="test_old_session_cannot_commit_after_replacement" time="21.082" />
+    <testcase classname="tests.test_deployment_containers.IsolatedContainerDeploymentTests" name="test_real_network_partition_and_reconnection" time="19.466" />
+    <testcase classname="tests.test_deployment_containers.IsolatedContainerDeploymentTests" name="test_sigkill_and_supervised_recovery" time="18.553" />
+    <testcase classname="tests.test_deployment_crash.WorkerCrashDeploymentTests" name="test_killed_worker_requires_exact_host_proof_before_replacement_runs" time="4.054" />
+    <testcase classname="tests.test_deployment_crash.WorkerCrashDeploymentTests" name="test_non_idempotent_crash_stays_uncertain_without_replay" time="2.373" />
+    <testcase classname="tests.test_deployment_llm.LLMProcessDeploymentTests" name="test_model_http_call_validation_and_usage_persist_across_remote_cli_process" time="1.051" />
+    <testcase classname="tests.test_deployment_network.NetworkPartitionTests" name="test_link_stays_down_after_business_drain_until_supervisor_attests_exit" time="4.650" />
+    <testcase classname="tests.test_deployment_network.NetworkPartitionTests" name="test_partition_keeps_center_alive_and_reconnect_cannot_revive_old_session" time="2.434" />
+    <testcase classname="tests.test_deployment_sessions.SessionDeploymentTests" name="test_bad_worker_and_management_credentials_cannot_mutate_state" time="0.495" />
+    <testcase classname="tests.test_deployment_sessions.SessionDeploymentTests" name="test_completed_remote_workflow_and_event_history_survive_central_restart" time="1.923" />
+    <testcase classname="tests.test_deployment_sessions.SessionDeploymentTests" name="test_fenced_session_cannot_write_claim_or_resurrect_after_same_id_restarts" time="1.306" />
+    <testcase classname="tests.test_deployment_supervisor.StopProofTests" name="test_live_restarting_or_reused_runtime_cannot_grant_replay" time="0.001" />
+    <testcase classname="tests.test_deployment_supervisor.StopProofTests" name="test_stopped_runtime_attestation_binds_exact_container_and_session" time="0.001" />
+    <testcase classname="tests.test_deployment_supervisor.StopProofTests" name="test_wrong_host_or_automatic_restart_policy_cannot_confirm_session" time="0.000" />
+  </testsuite>
+</testsuites>

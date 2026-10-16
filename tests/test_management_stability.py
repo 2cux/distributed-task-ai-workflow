@@ -28,7 +28,11 @@ class ManagementStabilityTests(ManagementTestCase):
                         replies = list(pool.map(lambda index: self.call('/api/v1/workflows',
                             self.workflow('busy-' + str(index)), timeout=2,
                             headers={'X-Request-ID': 'busy-' + str(index)}), range(3)))
-                self.assertLess(time.monotonic() - started, 1.5)
+                    response_elapsed = time.monotonic() - started
+                    # Reading Content-Length can complete before the handler's
+                    # final drain/log step. Keep capture active until it finishes.
+                    self.wait_for(lambda: self.service._server._active == 0)
+                self.assertLess(response_elapsed, 1.5)
                 for status, payload, headers in replies:
                     self.assertEqual(status, 503, payload)
                     self.assertEqual(headers['Retry-After'], '1')
