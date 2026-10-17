@@ -1,0 +1,29 @@
+{
+  "configuration": {
+    "concurrencies": [
+      1,
+      4,
+      8
+    ],
+    "workers": 4,
+    "duration": 180,
+    "repeat": 2,
+    "warmup": 10,
+    "window": 30,
+    "drain_timeout": 60,
+    "request_timeout": 10,
+    "provider_delay_ms": 25
+  },
+  "limits": {
+    "http_failure_rate": 0,
+    "workflow_failure_rate": 0,
+    "http_p95_ms": 2000,
+    "workflow_p95_ms": 10000,
+    "writer_wait_p95_ms": 1000,
+    "sqlite_begin_p95_ms": 500,
+    "busy_errors": 0,
+    "min_workflows_per_second": 0.1,
+    "min_throughput_ratio": 0.75,
+    "max_latency_ratio": 1.3
+  }
+}

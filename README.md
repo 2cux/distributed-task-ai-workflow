@@ -117,6 +117,12 @@ python tools/benchmark_management.py --repeat 3 --warmup 1 `
 
 运行边界、报告语义与三组独立测试见 [Benchmark 使用与验证](docs/benchmarks.md)。
 
+AI 模块另提供持续负载矩阵（并发 1/4/8）、生成/校验/用量核对、数据库写入等待
+探针，以及绝对阈值和历史基线回归门禁：
+[AI 工作流持续负载与质量回归](docs/ai-workflow-benchmarks.md)。
+`benchmarks/ai-smoke.json`、`ai-regression.json`、`ai-soak.json` 分别用于快速检查、
+常规回归和 18 分钟正式测量；CI 自动执行快速检查，手动运行可选择更长负载。
+
 ## 统一入口
 
 `TaskEngine` 是面向调用方的系统边界：它只装配 `TaskQueue`、执行器、Worker、

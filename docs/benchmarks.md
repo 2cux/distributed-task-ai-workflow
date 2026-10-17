@@ -1,5 +1,8 @@
 # Benchmark 使用与验证
 
+AI 模块的持续负载、并发矩阵、数据库竞争探针与可失败回归门禁见
+[AI 工作流持续负载与质量回归](ai-workflow-benchmarks.md)。原有短批次命令保持兼容。
+
 ## 检查结论
 
 仓库已有 `tools/benchmark_management.py` 和历史结果

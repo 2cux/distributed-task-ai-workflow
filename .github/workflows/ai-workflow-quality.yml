@@ -1,0 +1,40 @@
+name: AI workflow quality
+on:
+  push:
+    paths: ['src/**', 'tools/benchmark*.py', 'benchmarks/**', 'tests/**', '.github/workflows/ai-workflow-quality.yml']
+  pull_request:
+    paths: ['src/**', 'tools/benchmark*.py', 'benchmarks/**', 'tests/**', '.github/workflows/ai-workflow-quality.yml']
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Load profile
+        type: choice
+        options: [smoke, regression, soak]
+        default: smoke
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - name: Correctness regression
+        run: python -m pytest tests -q --junitxml=.artifacts/ai-quality-tests.xml
+      - name: Continuous AI load gate
+        shell: pwsh
+        env:
+          PROFILE: ${{ inputs.profile || 'smoke' }}
+        run: |
+          python tools/benchmark_ai_workflow.py --profile "benchmarks/ai-$env:PROFILE.json" --output .artifacts/ai-quality.json --markdown .artifacts/ai-quality.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-workflow-quality
+          path: .artifacts/ai-quality*
