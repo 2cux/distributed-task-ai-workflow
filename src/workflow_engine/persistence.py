@@ -238,6 +238,10 @@ class SQLiteTaskStore:
                     raise
 
     def _definition(self, task: Task) -> str:
+        # SQLite JSON extraction rounds larger integers to REAL, losing exact
+        # priority ordering and overflowing keyset cursor parameters on claim.
+        if type(task.priority) is not int or not -(2**63) <= task.priority < 2**63:
+            raise ValueError('persistent task priority must be a signed 64-bit integer')
         names = [name for name, func in self.registry.items() if func is task.callable]
         if len(names) != 1:
             raise PersistenceError("持久化任务的 callable 必须在 registry 中以唯一名称注册")
@@ -272,6 +276,8 @@ class SQLiteTaskStore:
         """Insert inside the caller's transaction (also used for atomic DAG submission)."""
         if task.max_retries is not None:
             retry_limit = min(retry_limit, task.max_retries)
+        if type(retry_limit) is not int or not 0 <= retry_limit < 2**63:
+            raise ValueError('persistent retry_limit must be a nonnegative signed 64-bit integer')
         row = db.execute("SELECT * FROM tasks WHERE id=?", (task.id,)).fetchone()
         if row is not None:
             if row["definition"] != definition:
@@ -391,7 +397,7 @@ class SQLiteTaskStore:
                 arguments = [_json(list(self.registry)), now, now]
                 if cursor is not None:
                     arguments.extend(cursor)
-                row = db.execute(f"""SELECT * FROM tasks
+                row = db.execute(f"""SELECT *, json_extract(definition,'$.priority') AS dispatch_priority FROM tasks
                 WHERE status IN ('PENDING','RETRYING')
                 AND workflow_blocked=0
                 AND {CLAIM_GUARD}
@@ -406,7 +412,9 @@ class SQLiteTaskStore:
                 claimed = self._claim(db, self._decode(row, db), owner, worker_session)
                 if claimed is not None:
                     return claimed
-                priority = json.loads(row['definition'])['priority']
+                # Match SQLite's comparison value for legacy out-of-range
+                # priorities already present in an older database.
+                priority = row['dispatch_priority']
                 cursor = (priority, priority, row['sequence'])
 
     def _claim(self, db, task: Task, owner: str, worker_session: str | None) -> Task | None:

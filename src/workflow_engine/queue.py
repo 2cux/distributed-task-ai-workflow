@@ -20,6 +20,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import heapq
 from itertools import count
+import math
 import threading
 import time
 
@@ -94,8 +95,8 @@ class TaskQueue:
         if timeout is not None:
             if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
                 raise TypeError("timeout 必须是非负秒数或 None")
-            if timeout < 0:
-                raise ValueError("timeout 必须是非负秒数或 None")
+            if not math.isfinite(timeout) or timeout < 0:
+                raise ValueError("timeout 必须是有限非负秒数或 None")
         if stop_requested is not None and not callable(stop_requested):
             raise TypeError("stop_requested 必须是可调用对象或 None")
 

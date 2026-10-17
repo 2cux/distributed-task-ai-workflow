@@ -11,7 +11,8 @@ def openapi_document():
         'id': text, 'handler': text, 'depends_on': {'type': 'array', 'items': text},
         'args': {'type': 'array', 'items': json_value}, 'kwargs': {'type': 'object', 'additionalProperties': json_value},
         'inputs': {'type': 'object', 'additionalProperties': ref('OutputRef')},
-        'priority': {'type': 'integer'}, 'max_retries': {'type': ['integer', 'null'], 'minimum': 0},
+        'priority': {'type': 'integer', 'minimum': -(2**63), 'maximum': 2**63-1},
+        'max_retries': {'type': ['integer', 'null'], 'minimum': 0, 'maximum': 2**63-1},
         'timeout': {'type': ['number', 'null'], 'exclusiveMinimum': 0},
         'scheduled_at': {'type': ['number', 'null'], 'minimum': 0}, 'idempotent': {'type': 'boolean'}})
     schemas = {'Node': node, 'OutputRef': dict(type='object', additionalProperties=False,

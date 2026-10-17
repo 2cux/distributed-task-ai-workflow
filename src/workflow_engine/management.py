@@ -296,7 +296,7 @@ class ManagementService:
                     status, raw, content_type = self._error(404, 'not_found', 'resource not found', request_id)
                 except (IdempotencyConflict, RecoveryConflict, WorkerRegistryError):
                     status, raw, content_type = self._error(409, 'conflict', 'definition or recovery state conflicts', request_id)
-                except (ValueError, TypeError, RecursionError, UnicodeError):
+                except (ValueError, TypeError, OverflowError, RecursionError, UnicodeError):
                     status, raw, content_type = self._error(400, 'invalid_request', 'invalid JSON or workflow definition', request_id)
                 except sqlite3.Error as error:
                     code = getattr(error, 'sqlite_errorcode', 0)
