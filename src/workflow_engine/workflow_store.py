@@ -28,6 +28,8 @@ class SQLiteWorkflowStore:
                 node_id TEXT NOT NULL, task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id),
                 state TEXT NOT NULL, error TEXT,
                 PRIMARY KEY(workflow_id, node_id))""")
+            db.execute("""CREATE INDEX IF NOT EXISTS workflow_unfinished
+                ON workflow_runs(id) WHERE status!='SUCCESS'""")
             columns = {row[1] for row in db.execute('PRAGMA table_info(workflow_nodes)')}
             if 'is_llm' not in columns:
                 db.execute('ALTER TABLE workflow_nodes ADD COLUMN is_llm INTEGER NOT NULL DEFAULT 0')
@@ -76,14 +78,23 @@ class SQLiteWorkflowStore:
         with self.tasks._transaction() as db:
             return self._advance(db, workflow_id)
 
-    def _advance(self, db, workflow_id: str) -> WorkflowRun:
+    @staticmethod
+    def unfinished_ids(db) -> list[str]:
+        # ORDER BY rowid makes SQLite prefer scanning the entire history to
+        # sorting. Read the small partial index, then restore insertion order.
+        rows = db.execute("SELECT id,rowid AS position FROM workflow_runs WHERE status!='SUCCESS'")
+        return [row['id'] for row in sorted(rows, key=lambda row: row['position'])]
+
+    def _advance(self, db, workflow_id: str, *, snapshot=True) -> WorkflowRun | None:
         run = db.execute("SELECT * FROM workflow_runs WHERE id=?", (workflow_id,)).fetchone()
         if run is None:
             raise KeyError(workflow_id)
         if db.execute("SELECT 1 FROM recovery_holds WHERE scope='workflow' AND target_id=?",
                       (workflow_id,)).fetchone():
-            db.execute("UPDATE workflow_runs SET status='PAUSED' WHERE id=?", (workflow_id,))
-            return self._snapshot(db, db.execute('SELECT * FROM workflow_runs WHERE id=?', (workflow_id,)).fetchone())
+            if run['status'] != 'PAUSED':
+                db.execute("UPDATE workflow_runs SET status='PAUSED' WHERE id=?", (workflow_id,))
+                run = db.execute('SELECT * FROM workflow_runs WHERE id=?', (workflow_id,)).fetchone()
+            return self._snapshot(db, run) if snapshot else None
         workflow = DAGWorkflow.from_dict(json.loads(run['definition']))
         rows = {row['node_id']: row for row in db.execute(
             """SELECT n.*, t.status AS task_status, t.result, t.definition AS task_definition,
@@ -129,15 +140,19 @@ class SQLiteWorkflowStore:
             elif state not in (NodeStatus.SKIPPED, NodeStatus.FAILED):
                 state = NodeStatus.READY if row['task_status'] == 'PENDING' else NodeStatus(row['task_status'])
             states[key] = state
-            db.execute("UPDATE workflow_nodes SET state=?, error=? WHERE workflow_id=? AND node_id=?",
-                       (state.value, error, workflow_id, key))
+            if state.value != row['state'] or error != row['error']:
+                db.execute("UPDATE workflow_nodes SET state=?, error=? WHERE workflow_id=? AND node_id=?",
+                           (state.value, error, workflow_id, key))
         terminal = {NodeStatus.SUCCESS, NodeStatus.FAILED, NodeStatus.SKIPPED}
         if all(state in terminal for state in states.values()):
             status = WorkflowStatus.SUCCESS if all(state is NodeStatus.SUCCESS for state in states.values()) else WorkflowStatus.FAILED
         else:
             status = WorkflowStatus.RUNNING
-        db.execute("UPDATE workflow_runs SET status=? WHERE id=?", (status.value, workflow_id))
-        return self._snapshot(db, db.execute("SELECT * FROM workflow_runs WHERE id=?", (workflow_id,)).fetchone())
+        if run['status'] != status.value:
+            db.execute("UPDATE workflow_runs SET status=? WHERE id=?", (status.value, workflow_id))
+            if snapshot:
+                run = db.execute('SELECT * FROM workflow_runs WHERE id=?', (workflow_id,)).fetchone()
+        return self._snapshot(db, run) if snapshot else None
 
     def _snapshot(self, db, run) -> WorkflowRun:
         definition = json.loads(run['definition'])

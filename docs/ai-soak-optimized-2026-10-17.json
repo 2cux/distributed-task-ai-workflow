@@ -1,0 +1,5014 @@
+{
+  "schema_version": 1,
+  "workload": "ai-http-generate-validate-v1",
+  "timestamp": "2026-10-17T05:19:19.733722+00:00",
+  "configuration": {
+    "concurrencies": [
+      1,
+      4,
+      8
+    ],
+    "workers": 4,
+    "duration": 180,
+    "repeat": 2,
+    "warmup": 10,
+    "window": 30,
+    "drain_timeout": 60,
+    "request_timeout": 10,
+    "provider_delay_ms": 25
+  },
+  "limits": {
+    "http_failure_rate": 0,
+    "workflow_failure_rate": 0,
+    "http_p95_ms": 2000,
+    "workflow_p95_ms": 10000,
+    "writer_wait_p95_ms": 1000,
+    "sqlite_begin_p95_ms": 500,
+    "busy_errors": 0,
+    "min_workflows_per_second": 0.1,
+    "min_throughput_ratio": 0.75,
+    "max_latency_ratio": 1.3
+  },
+  "environment": {
+    "python": "3.12.10",
+    "sqlite": "3.49.1",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "LAPTOP-598DOPCF"
+  },
+  "warmup_runs": [
+    {
+      "concurrency": 1,
+      "elapsed_seconds": 10.155836,
+      "admission_seconds": 10,
+      "http": {
+        "count": 233,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 2.015772,
+        "latency_ms": {
+          "p50": 4.308,
+          "p95": 25.321,
+          "p99": 28.818,
+          "maximum": 32.285
+        },
+        "requests_per_second": 22.942474
+      },
+      "workflows": {
+        "count": 36,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 10.1359,
+        "latency_ms": {
+          "p50": 295.705,
+          "p95": 346.738,
+          "p99": 350.988,
+          "maximum": 350.988
+        },
+        "workflows_per_second": 3.54476
+      },
+      "endpoints": {
+        "submit": {
+          "count": 36,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.360712,
+          "latency_ms": {
+            "p50": 6.945,
+            "p95": 25.321,
+            "p99": 32.285,
+            "maximum": 32.285
+          }
+        },
+        "read": {
+          "count": 197,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.65506,
+          "latency_ms": {
+            "p50": 3.711,
+            "p95": 25.83,
+            "p99": 28.818,
+            "maximum": 29.726
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1117,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.122084,
+          "latency_ms": {
+            "p50": 0.019,
+            "p95": 3.393,
+            "p99": 21.594,
+            "maximum": 33.571
+          }
+        },
+        "sqlite_begin": {
+          "count": 1117,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.048518,
+          "latency_ms": {
+            "p50": 0.022,
+            "p95": 0.074,
+            "p99": 0.186,
+            "maximum": 12.604
+          }
+        },
+        "sql": {
+          "count": 10029,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.029516,
+          "latency_ms": {
+            "p50": 0.034,
+            "p95": 0.243,
+            "p99": 0.802,
+            "maximum": 23.165
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 9946,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.021975,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.24,
+                "p99": 0.802,
+                "maximum": 23.165
+              }
+            },
+            "begin": {
+              "count": 1102,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.048395,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.074,
+                "p99": 0.186,
+                "maximum": 12.604
+              }
+            },
+            "writer_wait": {
+              "count": 1101,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.089255,
+              "latency_ms": {
+                "p50": 0.019,
+                "p95": 3.359,
+                "p99": 21.594,
+                "maximum": 33.571
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 36,
+        "tasks": 72,
+        "provider_calls": 36,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 233,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 2.015772,
+            "latency_ms": {
+              "p50": 4.308,
+              "p95": 25.321,
+              "p99": 28.818,
+              "maximum": 32.285
+            }
+          },
+          "workflows": {
+            "count": 36,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 10.1359,
+            "latency_ms": {
+              "p50": 295.705,
+              "p95": 346.738,
+              "p99": 350.988,
+              "maximum": 350.988
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 4,
+      "elapsed_seconds": 10.28333,
+      "admission_seconds": 10,
+      "http": {
+        "count": 892,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 9.194472,
+        "latency_ms": {
+          "p50": 5.257,
+          "p95": 29.691,
+          "p99": 44.648,
+          "maximum": 55.021
+        },
+        "requests_per_second": 86.74233
+      },
+      "workflows": {
+        "count": 142,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 40.575079,
+        "latency_ms": {
+          "p50": 284.167,
+          "p95": 368.069,
+          "p99": 453.605,
+          "maximum": 460.896
+        },
+        "workflows_per_second": 13.808757
+      },
+      "endpoints": {
+        "submit": {
+          "count": 142,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.958385,
+          "latency_ms": {
+            "p50": 7.905,
+            "p95": 43.768,
+            "p99": 55.021,
+            "maximum": 55.021
+          }
+        },
+        "read": {
+          "count": 750,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 7.236087,
+          "latency_ms": {
+            "p50": 4.351,
+            "p95": 28.25,
+            "p99": 40.823,
+            "maximum": 44.562
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1508,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 3.247384,
+          "latency_ms": {
+            "p50": 0.016,
+            "p95": 11.652,
+            "p99": 26.349,
+            "maximum": 74.249
+          }
+        },
+        "sqlite_begin": {
+          "count": 1508,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.125618,
+          "latency_ms": {
+            "p50": 0.021,
+            "p95": 0.17,
+            "p99": 0.544,
+            "maximum": 18.468
+          }
+        },
+        "sql": {
+          "count": 24409,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 3.043321,
+          "latency_ms": {
+            "p50": 0.029,
+            "p95": 0.373,
+            "p99": 0.81,
+            "maximum": 22.129
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 24326,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.035387,
+              "latency_ms": {
+                "p50": 0.029,
+                "p95": 0.369,
+                "p99": 0.81,
+                "maximum": 22.129
+              }
+            },
+            "begin": {
+              "count": 1493,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.125419,
+              "latency_ms": {
+                "p50": 0.021,
+                "p95": 0.173,
+                "p99": 0.583,
+                "maximum": 18.468
+              }
+            },
+            "writer_wait": {
+              "count": 1492,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.219762,
+              "latency_ms": {
+                "p50": 0.015,
+                "p95": 13.394,
+                "p99": 26.613,
+                "maximum": 74.249
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 142,
+        "tasks": 284,
+        "provider_calls": 142,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 892,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 9.194472,
+            "latency_ms": {
+              "p50": 5.257,
+              "p95": 29.691,
+              "p99": 44.648,
+              "maximum": 55.021
+            }
+          },
+          "workflows": {
+            "count": 142,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 40.575079,
+            "latency_ms": {
+              "p50": 284.167,
+              "p95": 368.069,
+              "p99": 453.605,
+              "maximum": 460.896
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 8,
+      "elapsed_seconds": 10.321247,
+      "admission_seconds": 10,
+      "http": {
+        "count": 1341,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 27.122508,
+        "latency_ms": {
+          "p50": 12.369,
+          "p95": 62.002,
+          "p99": 86.962,
+          "maximum": 209.707
+        },
+        "requests_per_second": 129.926162
+      },
+      "workflows": {
+        "count": 172,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 80.705415,
+        "latency_ms": {
+          "p50": 476.744,
+          "p95": 716.905,
+          "p99": 799.828,
+          "maximum": 799.917
+        },
+        "workflows_per_second": 16.664653
+      },
+      "endpoints": {
+        "submit": {
+          "count": 172,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 5.773737,
+          "latency_ms": {
+            "p50": 22.028,
+            "p95": 98.971,
+            "p99": 125.667,
+            "maximum": 209.707
+          }
+        },
+        "read": {
+          "count": 1169,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 21.348771,
+          "latency_ms": {
+            "p50": 11.198,
+            "p95": 55.574,
+            "p99": 74.905,
+            "maximum": 111.754
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1314,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 17.865488,
+          "latency_ms": {
+            "p50": 4.14,
+            "p95": 63.88,
+            "p99": 101.97,
+            "maximum": 224.254
+          }
+        },
+        "sqlite_begin": {
+          "count": 1314,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.408569,
+          "latency_ms": {
+            "p50": 0.03,
+            "p95": 0.437,
+            "p99": 10.444,
+            "maximum": 35.087
+          }
+        },
+        "sql": {
+          "count": 28862,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 8.160811,
+          "latency_ms": {
+            "p50": 0.057,
+            "p95": 0.704,
+            "p99": 1.813,
+            "maximum": 48.787
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 28779,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.152471,
+              "latency_ms": {
+                "p50": 0.058,
+                "p95": 0.704,
+                "p99": 1.813,
+                "maximum": 48.787
+              }
+            },
+            "begin": {
+              "count": 1299,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.408437,
+              "latency_ms": {
+                "p50": 0.03,
+                "p95": 0.437,
+                "p99": 10.549,
+                "maximum": 35.087
+              }
+            },
+            "writer_wait": {
+              "count": 1298,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 17.83414,
+              "latency_ms": {
+                "p50": 4.308,
+                "p95": 63.88,
+                "p99": 105.06,
+                "maximum": 224.254
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 172,
+        "tasks": 344,
+        "provider_calls": 172,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 1341,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 27.122508,
+            "latency_ms": {
+              "p50": 12.369,
+              "p95": 62.002,
+              "p99": 86.962,
+              "maximum": 209.707
+            }
+          },
+          "workflows": {
+            "count": 172,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 80.705415,
+            "latency_ms": {
+              "p50": 476.744,
+              "p95": 716.905,
+              "p99": 799.828,
+              "maximum": 799.917
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 4,
+      "elapsed_seconds": 10.145027,
+      "admission_seconds": 10,
+      "http": {
+        "count": 832,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 11.142905,
+        "latency_ms": {
+          "p50": 7.826,
+          "p95": 34.47,
+          "p99": 47.868,
+          "maximum": 57.616
+        },
+        "requests_per_second": 82.010622
+      },
+      "workflows": {
+        "count": 132,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 40.228946,
+        "latency_ms": {
+          "p50": 313.897,
+          "p95": 398.566,
+          "p99": 453.605,
+          "maximum": 474.241
+        },
+        "workflows_per_second": 13.011301
+      },
+      "endpoints": {
+        "submit": {
+          "count": 132,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 2.255773,
+          "latency_ms": {
+            "p50": 10.549,
+            "p95": 44.648,
+            "p99": 51.321,
+            "maximum": 52.458
+          }
+        },
+        "read": {
+          "count": 700,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 8.887133,
+          "latency_ms": {
+            "p50": 6.674,
+            "p95": 33.791,
+            "p99": 44.648,
+            "maximum": 57.616
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1443,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 3.25159,
+          "latency_ms": {
+            "p50": 0.022,
+            "p95": 10.341,
+            "p99": 29.397,
+            "maximum": 72.847
+          }
+        },
+        "sqlite_begin": {
+          "count": 1443,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.118158,
+          "latency_ms": {
+            "p50": 0.021,
+            "p95": 0.154,
+            "p99": 0.619,
+            "maximum": 11.599
+          }
+        },
+        "sql": {
+          "count": 23040,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 2.830593,
+          "latency_ms": {
+            "p50": 0.029,
+            "p95": 0.392,
+            "p99": 0.826,
+            "maximum": 22.107
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 22957,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.822482,
+              "latency_ms": {
+                "p50": 0.029,
+                "p95": 0.392,
+                "p99": 0.826,
+                "maximum": 22.107
+              }
+            },
+            "begin": {
+              "count": 1428,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.117985,
+              "latency_ms": {
+                "p50": 0.021,
+                "p95": 0.158,
+                "p99": 0.619,
+                "maximum": 11.599
+              }
+            },
+            "writer_wait": {
+              "count": 1427,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.218698,
+              "latency_ms": {
+                "p50": 0.021,
+                "p95": 10.868,
+                "p99": 29.397,
+                "maximum": 72.847
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 132,
+        "tasks": 264,
+        "provider_calls": 132,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 832,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 11.142905,
+            "latency_ms": {
+              "p50": 7.826,
+              "p95": 34.47,
+              "p99": 47.868,
+              "maximum": 57.616
+            }
+          },
+          "workflows": {
+            "count": 132,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 40.228946,
+            "latency_ms": {
+              "p50": 313.897,
+              "p95": 398.566,
+              "p99": 453.605,
+              "maximum": 474.241
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 8,
+      "elapsed_seconds": 10.280342,
+      "admission_seconds": 10,
+      "http": {
+        "count": 1156,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 33.156922,
+        "latency_ms": {
+          "p50": 19.744,
+          "p95": 76.41,
+          "p99": 129.475,
+          "maximum": 231.57
+        },
+        "requests_per_second": 112.447625
+      },
+      "workflows": {
+        "count": 150,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 80.117475,
+        "latency_ms": {
+          "p50": 516.245,
+          "p95": 784.068,
+          "p99": 919.382,
+          "maximum": 996.737
+        },
+        "workflows_per_second": 14.590955
+      },
+      "endpoints": {
+        "submit": {
+          "count": 150,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 8.120064,
+          "latency_ms": {
+            "p50": 38.076,
+            "p95": 143.021,
+            "p99": 228.299,
+            "maximum": 231.57
+          }
+        },
+        "read": {
+          "count": 1006,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 25.036858,
+          "latency_ms": {
+            "p50": 18.053,
+            "p95": 65.164,
+            "p99": 81.922,
+            "maximum": 118.387
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1134,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 23.738934,
+          "latency_ms": {
+            "p50": 7.521,
+            "p95": 85.249,
+            "p99": 126.924,
+            "maximum": 185.583
+          }
+        },
+        "sqlite_begin": {
+          "count": 1134,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.532499,
+          "latency_ms": {
+            "p50": 0.034,
+            "p95": 0.67,
+            "p99": 20.141,
+            "maximum": 48.454
+          }
+        },
+        "sql": {
+          "count": 25089,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 8.986874,
+          "latency_ms": {
+            "p50": 0.07,
+            "p95": 0.868,
+            "p99": 2.256,
+            "maximum": 48.454
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 25006,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.976627,
+              "latency_ms": {
+                "p50": 0.07,
+                "p95": 0.868,
+                "p99": 2.256,
+                "maximum": 48.454
+              }
+            },
+            "begin": {
+              "count": 1119,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.532348,
+              "latency_ms": {
+                "p50": 0.035,
+                "p95": 0.69,
+                "p99": 20.141,
+                "maximum": 48.454
+              }
+            },
+            "writer_wait": {
+              "count": 1118,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 23.696035,
+              "latency_ms": {
+                "p50": 7.672,
+                "p95": 85.249,
+                "p99": 126.924,
+                "maximum": 185.583
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 150,
+        "tasks": 300,
+        "provider_calls": 150,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 1156,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.156922,
+            "latency_ms": {
+              "p50": 19.744,
+              "p95": 76.41,
+              "p99": 129.475,
+              "maximum": 231.57
+            }
+          },
+          "workflows": {
+            "count": 150,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 80.117475,
+            "latency_ms": {
+              "p50": 516.245,
+              "p95": 784.068,
+              "p99": 919.382,
+              "maximum": 996.737
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 1,
+      "elapsed_seconds": 10.302759,
+      "admission_seconds": 10,
+      "http": {
+        "count": 220,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 2.921072,
+        "latency_ms": {
+          "p50": 6.945,
+          "p95": 32.472,
+          "p99": 42.905,
+          "maximum": 50.128
+        },
+        "requests_per_second": 21.353504
+      },
+      "workflows": {
+        "count": 37,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 10.284399,
+        "latency_ms": {
+          "p50": 292.778,
+          "p95": 353.707,
+          "p99": 363.315,
+          "maximum": 363.315
+        },
+        "workflows_per_second": 3.591271
+      },
+      "endpoints": {
+        "submit": {
+          "count": 37,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.543634,
+          "latency_ms": {
+            "p50": 8.732,
+            "p95": 29.106,
+            "p99": 30.564,
+            "maximum": 30.564
+          }
+        },
+        "read": {
+          "count": 183,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 2.377438,
+          "latency_ms": {
+            "p50": 6.288,
+            "p95": 33.125,
+            "p99": 49.812,
+            "maximum": 50.128
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 1134,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.15958,
+          "latency_ms": {
+            "p50": 0.021,
+            "p95": 3.531,
+            "p99": 20.546,
+            "maximum": 28.683
+          }
+        },
+        "sqlite_begin": {
+          "count": 1134,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.04992,
+          "latency_ms": {
+            "p50": 0.022,
+            "p95": 0.093,
+            "p99": 0.243,
+            "maximum": 13.493
+          }
+        },
+        "sql": {
+          "count": 10087,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.233233,
+          "latency_ms": {
+            "p50": 0.033,
+            "p95": 0.315,
+            "p99": 0.843,
+            "maximum": 21.298
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 10004,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.22503,
+              "latency_ms": {
+                "p50": 0.033,
+                "p95": 0.311,
+                "p99": 0.834,
+                "maximum": 21.298
+              }
+            },
+            "begin": {
+              "count": 1119,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.049738,
+              "latency_ms": {
+                "p50": 0.022,
+                "p95": 0.094,
+                "p99": 0.243,
+                "maximum": 13.493
+              }
+            },
+            "writer_wait": {
+              "count": 1118,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.125899,
+              "latency_ms": {
+                "p50": 0.02,
+                "p95": 3.496,
+                "p99": 20.546,
+                "maximum": 28.683
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 37,
+        "tasks": 74,
+        "provider_calls": 37,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 220,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 2.921072,
+            "latency_ms": {
+              "p50": 6.945,
+              "p95": 32.472,
+              "p99": 42.905,
+              "maximum": 50.128
+            }
+          },
+          "workflows": {
+            "count": 37,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 10.284399,
+            "latency_ms": {
+              "p50": 292.778,
+              "p95": 353.707,
+              "p99": 363.315,
+              "maximum": 363.315
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    }
+  ],
+  "runs": [
+    {
+      "concurrency": 1,
+      "elapsed_seconds": 180.131972,
+      "admission_seconds": 180,
+      "http": {
+        "count": 4127,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 38.653473,
+        "latency_ms": {
+          "p50": 5.051,
+          "p95": 26.349,
+          "p99": 32.151,
+          "maximum": 135.487
+        },
+        "requests_per_second": 22.91098
+      },
+      "workflows": {
+        "count": 661,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 180.101449,
+        "latency_ms": {
+          "p50": 267.698,
+          "p95": 353.707,
+          "p99": 371.75,
+          "maximum": 393.718
+        },
+        "workflows_per_second": 3.669532
+      },
+      "endpoints": {
+        "submit": {
+          "count": 661,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 7.491038,
+          "latency_ms": {
+            "p50": 7.015,
+            "p95": 27.97,
+            "p99": 32.797,
+            "maximum": 42.672
+          }
+        },
+        "read": {
+          "count": 3466,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 31.162436,
+          "latency_ms": {
+            "p50": 4.483,
+            "p95": 26.088,
+            "p99": 32.151,
+            "maximum": 135.487
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 19591,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 18.468147,
+          "latency_ms": {
+            "p50": 0.017,
+            "p95": 3.427,
+            "p99": 20.141,
+            "maximum": 118.578
+          }
+        },
+        "sqlite_begin": {
+          "count": 19591,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.059829,
+          "latency_ms": {
+            "p50": 0.023,
+            "p95": 0.092,
+            "p99": 0.258,
+            "maximum": 20.668
+          }
+        },
+        "sql": {
+          "count": 177908,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 19.144091,
+          "latency_ms": {
+            "p50": 0.036,
+            "p95": 0.266,
+            "p99": 0.826,
+            "maximum": 93.845
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 29545,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.657429,
+              "latency_ms": {
+                "p50": 0.033,
+                "p95": 0.255,
+                "p99": 0.843,
+                "maximum": 93.845
+              }
+            },
+            "begin": {
+              "count": 3228,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.170406,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.08,
+                "p99": 0.25,
+                "maximum": 20.668
+              }
+            },
+            "writer_wait": {
+              "count": 3228,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.586424,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 3.531,
+                "p99": 22.028,
+                "maximum": 118.578
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "sql": {
+              "count": 29619,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.04061,
+              "latency_ms": {
+                "p50": 0.037,
+                "p95": 0.268,
+                "p99": 0.818,
+                "maximum": 20.864
+              }
+            },
+            "begin": {
+              "count": 3275,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.196515,
+              "latency_ms": {
+                "p50": 0.024,
+                "p95": 0.094,
+                "p99": 0.229,
+                "maximum": 15.068
+              }
+            },
+            "writer_wait": {
+              "count": 3274,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.622273,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 3.638,
+                "p99": 9.086,
+                "maximum": 29.74
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "sql": {
+              "count": 29757,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.037438,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.263,
+                "p99": 0.81,
+                "maximum": 22.134
+              }
+            },
+            "writer_wait": {
+              "count": 3273,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.98086,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 3.461,
+                "p99": 18.786,
+                "maximum": 48.561
+              }
+            },
+            "begin": {
+              "count": 3273,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.159692,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.088,
+                "p99": 0.245,
+                "maximum": 12.852
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "sql": {
+              "count": 29433,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.21405,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.274,
+                "p99": 0.834,
+                "maximum": 19.353
+              }
+            },
+            "writer_wait": {
+              "count": 3254,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.126389,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 3.326,
+                "p99": 21.169,
+                "maximum": 28.957
+              }
+            },
+            "begin": {
+              "count": 3254,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.222652,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.1,
+                "p99": 0.305,
+                "maximum": 18.402
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "writer_wait": {
+              "count": 3256,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.785381,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 3.165,
+                "p99": 19.942,
+                "maximum": 27.376
+              }
+            },
+            "sql": {
+              "count": 29467,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.024281,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.258,
+                "p99": 0.81,
+                "maximum": 20.572
+              }
+            },
+            "begin": {
+              "count": 3256,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.174632,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.092,
+                "p99": 0.253,
+                "maximum": 16.349
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "writer_wait": {
+              "count": 3264,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.323077,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 3.531,
+                "p99": 20.752,
+                "maximum": 27.599
+              }
+            },
+            "sql": {
+              "count": 29823,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.144347,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.274,
+                "p99": 0.826,
+                "maximum": 18.583
+              }
+            },
+            "begin": {
+              "count": 3264,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.135205,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.096,
+                "p99": 0.258,
+                "maximum": 6.496
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "sql": {
+              "count": 181,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.017174,
+              "latency_ms": {
+                "p50": 0.045,
+                "p95": 0.455,
+                "p99": 0.802,
+                "maximum": 0.896
+              }
+            },
+            "writer_wait": {
+              "count": 26,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.011876,
+              "latency_ms": {
+                "p50": 0.014,
+                "p95": 2.002,
+                "p99": 2.32,
+                "maximum": 2.32
+              }
+            },
+            "begin": {
+              "count": 26,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.000603,
+              "latency_ms": {
+                "p50": 0.014,
+                "p95": 0.072,
+                "p99": 0.088,
+                "maximum": 0.088
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 661,
+        "tasks": 1322,
+        "provider_calls": 661,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 688,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.581066,
+            "latency_ms": {
+              "p50": 4.806,
+              "p95": 26.613,
+              "p99": 35.87,
+              "maximum": 135.487
+            }
+          },
+          "workflows": {
+            "count": 112,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.988891,
+            "latency_ms": {
+              "p50": 257.253,
+              "p95": 368.069,
+              "p99": 390.713,
+              "maximum": 393.718
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 679,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.854797,
+            "latency_ms": {
+              "p50": 5.416,
+              "p95": 26.879,
+              "p99": 34.129,
+              "maximum": 44.745
+            }
+          },
+          "workflows": {
+            "count": 110,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.145154,
+            "latency_ms": {
+              "p50": 270.375,
+              "p95": 346.738,
+              "p99": 350.205,
+              "maximum": 350.34
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 691,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.303018,
+            "latency_ms": {
+              "p50": 5.001,
+              "p95": 27.147,
+              "p99": 34.815,
+              "maximum": 49.558
+            }
+          },
+          "workflows": {
+            "count": 111,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.011698,
+            "latency_ms": {
+              "p50": 262.423,
+              "p95": 339.906,
+              "p99": 360.817,
+              "maximum": 367.758
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 688,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.128155,
+            "latency_ms": {
+              "p50": 5.001,
+              "p95": 25.574,
+              "p99": 30.896,
+              "maximum": 41.671
+            }
+          },
+          "workflows": {
+            "count": 107,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.948941,
+            "latency_ms": {
+              "p50": 292.778,
+              "p95": 360.817,
+              "p99": 383.014,
+              "maximum": 385.881
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 682,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.465807,
+            "latency_ms": {
+              "p50": 4.903,
+              "p95": 26.613,
+              "p99": 30.896,
+              "maximum": 40.857
+            }
+          },
+          "workflows": {
+            "count": 108,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.989698,
+            "latency_ms": {
+              "p50": 281.354,
+              "p95": 353.707,
+              "p99": 364.425,
+              "maximum": 367.216
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 697,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.291391,
+            "latency_ms": {
+              "p50": 5.153,
+              "p95": 25.83,
+              "p99": 32.151,
+              "maximum": 49.062
+            }
+          },
+          "workflows": {
+            "count": 113,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.017066,
+            "latency_ms": {
+              "p50": 259.825,
+              "p95": 343.305,
+              "p99": 364.425,
+              "maximum": 365.321
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 2,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.02924,
+            "latency_ms": {
+              "p50": 5.051,
+              "p95": 24.222,
+              "p99": 24.222,
+              "maximum": 24.222
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 4,
+      "elapsed_seconds": 180.268292,
+      "admission_seconds": 180,
+      "http": {
+        "count": 15098,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 193.112569,
+        "latency_ms": {
+          "p50": 7.085,
+          "p95": 34.129,
+          "p99": 47.394,
+          "maximum": 104.41
+        },
+        "requests_per_second": 83.752943
+      },
+      "workflows": {
+        "count": 2429,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 720.408274,
+        "latency_ms": {
+          "p50": 301.649,
+          "p95": 383.014,
+          "p99": 402.552,
+          "maximum": 470.843
+        },
+        "workflows_per_second": 13.474361
+      },
+      "endpoints": {
+        "submit": {
+          "count": 2429,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 38.217659,
+          "latency_ms": {
+            "p50": 9.361,
+            "p95": 41.644,
+            "p99": 60.78,
+            "maximum": 104.41
+          }
+        },
+        "read": {
+          "count": 12669,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 154.89491,
+          "latency_ms": {
+            "p50": 6.103,
+            "p95": 32.472,
+            "p99": 43.768,
+            "maximum": 63.97
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 25595,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 52.315963,
+          "latency_ms": {
+            "p50": 0.016,
+            "p95": 9.742,
+            "p99": 26.349,
+            "maximum": 69.805
+          }
+        },
+        "sqlite_begin": {
+          "count": 25595,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 2.791802,
+          "latency_ms": {
+            "p50": 0.023,
+            "p95": 0.184,
+            "p99": 0.538,
+            "maximum": 22.096
+          }
+        },
+        "sql": {
+          "count": 416148,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 56.532514,
+          "latency_ms": {
+            "p50": 0.033,
+            "p95": 0.403,
+            "p99": 0.859,
+            "maximum": 29.011
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 71482,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.382914,
+              "latency_ms": {
+                "p50": 0.03,
+                "p95": 0.392,
+                "p99": 0.843,
+                "maximum": 29.011
+              }
+            },
+            "begin": {
+              "count": 4346,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.479261,
+              "latency_ms": {
+                "p50": 0.021,
+                "p95": 0.184,
+                "p99": 0.507,
+                "maximum": 20.094
+              }
+            },
+            "writer_wait": {
+              "count": 4345,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.652322,
+              "latency_ms": {
+                "p50": 0.015,
+                "p95": 8.996,
+                "p99": 25.83,
+                "maximum": 69.805
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "sql": {
+              "count": 70404,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.125888,
+              "latency_ms": {
+                "p50": 0.032,
+                "p95": 0.395,
+                "p99": 0.851,
+                "maximum": 24.507
+              }
+            },
+            "writer_wait": {
+              "count": 4296,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.653017,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 9.086,
+                "p99": 26.613,
+                "maximum": 50.243
+              }
+            },
+            "begin": {
+              "count": 4296,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.457461,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.173,
+                "p99": 0.589,
+                "maximum": 18.945
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "sql": {
+              "count": 69508,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.751026,
+              "latency_ms": {
+                "p50": 0.033,
+                "p95": 0.416,
+                "p99": 0.868,
+                "maximum": 24.832
+              }
+            },
+            "writer_wait": {
+              "count": 4281,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.554084,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 8.996,
+                "p99": 25.07,
+                "maximum": 51.414
+              }
+            },
+            "begin": {
+              "count": 4281,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.474546,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.193,
+                "p99": 0.572,
+                "maximum": 17.48
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "sql": {
+              "count": 67852,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.25766,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.403,
+                "p99": 0.868,
+                "maximum": 23.18
+              }
+            },
+            "writer_wait": {
+              "count": 4201,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.08412,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 10.977,
+                "p99": 26.879,
+                "maximum": 56.89
+              }
+            },
+            "begin": {
+              "count": 4200,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.486455,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.182,
+                "p99": 0.478,
+                "maximum": 22.096
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "sql": {
+              "count": 68384,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.590119,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.407,
+                "p99": 0.859,
+                "maximum": 23.788
+              }
+            },
+            "begin": {
+              "count": 4212,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.516558,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.182,
+                "p99": 0.566,
+                "maximum": 20.722
+              }
+            },
+            "writer_wait": {
+              "count": 4211,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.45341,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 9.269,
+                "p99": 27.147,
+                "maximum": 58.789
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "sql": {
+              "count": 68098,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.380604,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.412,
+                "p99": 0.885,
+                "maximum": 22.978
+              }
+            },
+            "writer_wait": {
+              "count": 4204,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.870947,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 10.868,
+                "p99": 27.147,
+                "maximum": 48.445
+              }
+            },
+            "begin": {
+              "count": 4204,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.376465,
+              "latency_ms": {
+                "p50": 0.022,
+                "p95": 0.186,
+                "p99": 0.555,
+                "maximum": 18.29
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "sql": {
+              "count": 337,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.036229,
+              "latency_ms": {
+                "p50": 0.044,
+                "p95": 0.478,
+                "p99": 0.589,
+                "maximum": 2.909
+              }
+            },
+            "writer_wait": {
+              "count": 41,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.015624,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 1.641,
+                "p99": 1.946,
+                "maximum": 1.946
+              }
+            },
+            "begin": {
+              "count": 41,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.000928,
+              "latency_ms": {
+                "p50": 0.015,
+                "p95": 0.062,
+                "p99": 0.077,
+                "maximum": 0.077
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 2429,
+        "tasks": 4858,
+        "provider_calls": 2429,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 2606,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.190285,
+            "latency_ms": {
+              "p50": 5.865,
+              "p95": 30.59,
+              "p99": 42.481,
+              "maximum": 71.436
+            }
+          },
+          "workflows": {
+            "count": 423,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.330728,
+            "latency_ms": {
+              "p50": 284.167,
+              "p95": 364.425,
+              "p99": 386.844,
+              "maximum": 470.843
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 2554,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 31.143037,
+            "latency_ms": {
+              "p50": 6.478,
+              "p95": 34.815,
+              "p99": 46.0,
+              "maximum": 71.654
+            }
+          },
+          "workflows": {
+            "count": 416,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.968912,
+            "latency_ms": {
+              "p50": 289.879,
+              "p95": 379.222,
+              "p99": 398.566,
+              "maximum": 408.799
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 2503,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.197358,
+            "latency_ms": {
+              "p50": 7.521,
+              "p95": 33.791,
+              "p99": 45.545,
+              "maximum": 64.948
+            }
+          },
+          "workflows": {
+            "count": 408,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.852738,
+            "latency_ms": {
+              "p50": 298.662,
+              "p95": 375.467,
+              "p99": 386.844,
+              "maximum": 411.216
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 2458,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.912684,
+            "latency_ms": {
+              "p50": 8.144,
+              "p95": 35.163,
+              "p99": 49.319,
+              "maximum": 71.746
+            }
+          },
+          "workflows": {
+            "count": 394,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.392217,
+            "latency_ms": {
+              "p50": 307.712,
+              "p95": 386.844,
+              "p99": 402.552,
+              "maximum": 416.935
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 2480,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.209623,
+            "latency_ms": {
+              "p50": 7.596,
+              "p95": 35.515,
+              "p99": 50.31,
+              "maximum": 74.364
+            }
+          },
+          "workflows": {
+            "count": 397,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.182897,
+            "latency_ms": {
+              "p50": 307.712,
+              "p95": 390.713,
+              "p99": 406.577,
+              "maximum": 436.015
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 2485,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 32.337665,
+            "latency_ms": {
+              "p50": 7.373,
+              "p95": 33.456,
+              "p99": 47.868,
+              "maximum": 104.41
+            }
+          },
+          "workflows": {
+            "count": 391,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.680782,
+            "latency_ms": {
+              "p50": 313.897,
+              "p95": 390.713,
+              "p99": 410.643,
+              "maximum": 417.475
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 12,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.121916,
+            "latency_ms": {
+              "p50": 4.573,
+              "p95": 25.045,
+              "p99": 25.045,
+              "maximum": 25.045
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 8,
+      "elapsed_seconds": 180.247191,
+      "admission_seconds": 180,
+      "http": {
+        "count": 24134,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 503.558113,
+        "latency_ms": {
+          "p50": 14.943,
+          "p95": 53.939,
+          "p99": 80.308,
+          "maximum": 189.105
+        },
+        "requests_per_second": 133.893904
+      },
+      "workflows": {
+        "count": 3338,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 1440.250004,
+        "latency_ms": {
+          "p50": 423.086,
+          "p95": 599.345,
+          "p99": 682.11,
+          "maximum": 932.266
+        },
+        "workflows_per_second": 18.519013
+      },
+      "endpoints": {
+        "submit": {
+          "count": 3338,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 106.549887,
+          "latency_ms": {
+            "p50": 22.696,
+            "p95": 84.405,
+            "p99": 114.902,
+            "maximum": 189.105
+          }
+        },
+        "read": {
+          "count": 20796,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 397.008226,
+          "latency_ms": {
+            "p50": 13.8,
+            "p95": 48.83,
+            "p99": 64.519,
+            "maximum": 121.43
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 24342,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 295.256401,
+          "latency_ms": {
+            "p50": 4.483,
+            "p95": 50.813,
+            "p99": 79.513,
+            "maximum": 193.78
+          }
+        },
+        "sqlite_begin": {
+          "count": 24342,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 7.774131,
+          "latency_ms": {
+            "p50": 0.029,
+            "p95": 0.441,
+            "p99": 12.369,
+            "maximum": 39.684
+          }
+        },
+        "sql": {
+          "count": 540106,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 149.307934,
+          "latency_ms": {
+            "p50": 0.059,
+            "p95": 0.697,
+            "p99": 1.924,
+            "maximum": 40.87
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 95645,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 23.650397,
+              "latency_ms": {
+                "p50": 0.05,
+                "p95": 0.638,
+                "p99": 1.641,
+                "maximum": 40.87
+              }
+            },
+            "begin": {
+              "count": 4313,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.162781,
+              "latency_ms": {
+                "p50": 0.025,
+                "p95": 0.373,
+                "p99": 7.3,
+                "maximum": 37.42
+              }
+            },
+            "writer_wait": {
+              "count": 4313,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 45.807763,
+              "latency_ms": {
+                "p50": 3.496,
+                "p95": 46.925,
+                "p99": 75.654,
+                "maximum": 193.78
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "sql": {
+              "count": 92829,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 24.150262,
+              "latency_ms": {
+                "p50": 0.055,
+                "p95": 0.677,
+                "p99": 1.831,
+                "maximum": 37.905
+              }
+            },
+            "begin": {
+              "count": 4187,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.277438,
+              "latency_ms": {
+                "p50": 0.029,
+                "p95": 0.416,
+                "p99": 12.125,
+                "maximum": 36.357
+              }
+            },
+            "writer_wait": {
+              "count": 4186,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 49.064304,
+              "latency_ms": {
+                "p50": 4.308,
+                "p95": 49.319,
+                "p99": 77.946,
+                "maximum": 108.28
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "sql": {
+              "count": 95422,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 23.207445,
+              "latency_ms": {
+                "p50": 0.051,
+                "p95": 0.631,
+                "p99": 1.657,
+                "maximum": 39.134
+              }
+            },
+            "writer_wait": {
+              "count": 4371,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 40.235896,
+              "latency_ms": {
+                "p50": 2.981,
+                "p95": 40.019,
+                "p99": 65.816,
+                "maximum": 94.458
+              }
+            },
+            "begin": {
+              "count": 4371,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.324553,
+              "latency_ms": {
+                "p50": 0.026,
+                "p95": 0.362,
+                "p99": 12.493,
+                "maximum": 35.614
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "sql": {
+              "count": 84708,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 25.621038,
+              "latency_ms": {
+                "p50": 0.069,
+                "p95": 0.763,
+                "p99": 1.982,
+                "maximum": 40.276
+              }
+            },
+            "writer_wait": {
+              "count": 3788,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 51.923469,
+              "latency_ms": {
+                "p50": 5.749,
+                "p95": 52.353,
+                "p99": 79.513,
+                "maximum": 140.242
+              }
+            },
+            "begin": {
+              "count": 3788,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.351932,
+              "latency_ms": {
+                "p50": 0.032,
+                "p95": 0.538,
+                "p99": 13.663,
+                "maximum": 39.684
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "sql": {
+              "count": 82121,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 26.820838,
+              "latency_ms": {
+                "p50": 0.074,
+                "p95": 0.818,
+                "p99": 2.325,
+                "maximum": 38.997
+              }
+            },
+            "writer_wait": {
+              "count": 3609,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 60.489987,
+              "latency_ms": {
+                "p50": 7.085,
+                "p95": 65.816,
+                "p99": 90.493,
+                "maximum": 127.221
+              }
+            },
+            "begin": {
+              "count": 3609,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.518614,
+              "latency_ms": {
+                "p50": 0.035,
+                "p95": 0.589,
+                "p99": 16.021,
+                "maximum": 37.099
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "sql": {
+              "count": 88642,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 25.786617,
+              "latency_ms": {
+                "p50": 0.062,
+                "p95": 0.69,
+                "p99": 2.043,
+                "maximum": 35.285
+              }
+            },
+            "writer_wait": {
+              "count": 4003,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 47.62136,
+              "latency_ms": {
+                "p50": 4.439,
+                "p95": 49.812,
+                "p99": 77.174,
+                "maximum": 144.189
+              }
+            },
+            "begin": {
+              "count": 4003,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.137428,
+              "latency_ms": {
+                "p50": 0.03,
+                "p95": 0.446,
+                "p99": 8.732,
+                "maximum": 29.23
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "sql": {
+              "count": 656,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.060156,
+              "latency_ms": {
+                "p50": 0.032,
+                "p95": 0.42,
+                "p99": 0.677,
+                "maximum": 7.284
+              }
+            },
+            "writer_wait": {
+              "count": 56,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.071327,
+              "latency_ms": {
+                "p50": 0.014,
+                "p95": 8.391,
+                "p99": 9.478,
+                "maximum": 9.478
+              }
+            },
+            "begin": {
+              "count": 56,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.001256,
+              "latency_ms": {
+                "p50": 0.01,
+                "p95": 0.086,
+                "p99": 0.157,
+                "maximum": 0.157
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 3338,
+        "tasks": 6676,
+        "provider_calls": 3338,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 4218,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 78.398169,
+            "latency_ms": {
+              "p50": 12.871,
+              "p95": 48.83,
+              "p99": 74.905,
+              "maximum": 160.048
+            }
+          },
+          "workflows": {
+            "count": 601,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 241.199321,
+            "latency_ms": {
+              "p50": 390.713,
+              "p95": 581.718,
+              "p99": 688.931,
+              "maximum": 932.266
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 4088,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 83.316374,
+            "latency_ms": {
+              "p50": 14.218,
+              "p95": 53.939,
+              "p99": 82.741,
+              "maximum": 134.632
+            }
+          },
+          "workflows": {
+            "count": 576,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.227045,
+            "latency_ms": {
+              "p50": 410.643,
+              "p95": 575.959,
+              "p99": 642.579,
+              "maximum": 774.636
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 4194,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 79.643089,
+            "latency_ms": {
+              "p50": 13.528,
+              "p95": 48.347,
+              "p99": 70.564,
+              "maximum": 126.176
+            }
+          },
+          "workflows": {
+            "count": 592,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.831961,
+            "latency_ms": {
+              "p50": 406.577,
+              "p95": 531.888,
+              "p99": 605.338,
+              "maximum": 647.978
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 3844,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 88.288783,
+            "latency_ms": {
+              "p50": 17.177,
+              "p95": 56.691,
+              "p99": 85.249,
+              "maximum": 158.587
+            }
+          },
+          "workflows": {
+            "count": 520,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 240.675183,
+            "latency_ms": {
+              "p50": 472.024,
+              "p95": 599.345,
+              "p99": 655.495,
+              "maximum": 673.21
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 3832,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 86.924174,
+            "latency_ms": {
+              "p50": 16.507,
+              "p95": 56.691,
+              "p99": 88.71,
+              "maximum": 162.923
+            }
+          },
+          "workflows": {
+            "count": 498,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 240.238461,
+            "latency_ms": {
+              "p50": 476.744,
+              "p95": 655.495,
+              "p99": 724.074,
+              "maximum": 797.052
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 3938,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 86.752413,
+            "latency_ms": {
+              "p50": 16.181,
+              "p95": 56.129,
+              "p99": 77.174,
+              "maximum": 189.105
+            }
+          },
+          "workflows": {
+            "count": 551,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.078033,
+            "latency_ms": {
+              "p50": 427.317,
+              "p95": 587.535,
+              "p99": 716.905,
+              "maximum": 763.748
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 20,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.23511,
+            "latency_ms": {
+              "p50": 6.543,
+              "p95": 28.818,
+              "p99": 28.867,
+              "maximum": 28.867
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 1,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 4,
+      "elapsed_seconds": 180.218226,
+      "admission_seconds": 180,
+      "http": {
+        "count": 14653,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 202.731439,
+        "latency_ms": {
+          "p50": 7.905,
+          "p95": 38.076,
+          "p99": 53.405,
+          "maximum": 112.487
+        },
+        "requests_per_second": 81.306982
+      },
+      "workflows": {
+        "count": 2340,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 720.17931,
+        "latency_ms": {
+          "p50": 310.789,
+          "p95": 402.552,
+          "p99": 435.906,
+          "maximum": 567.751
+        },
+        "workflows_per_second": 12.984258
+      },
+      "endpoints": {
+        "submit": {
+          "count": 2340,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 40.513327,
+          "latency_ms": {
+            "p50": 10.977,
+            "p95": 45.545,
+            "p99": 65.164,
+            "maximum": 112.487
+          }
+        },
+        "read": {
+          "count": 12313,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 162.218112,
+          "latency_ms": {
+            "p50": 6.877,
+            "p95": 36.591,
+            "p99": 50.31,
+            "maximum": 101.669
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 24623,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 68.673929,
+          "latency_ms": {
+            "p50": 0.018,
+            "p95": 15.093,
+            "p99": 34.129,
+            "maximum": 83.776
+          }
+        },
+        "sqlite_begin": {
+          "count": 24623,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 3.209807,
+          "latency_ms": {
+            "p50": 0.025,
+            "p95": 0.211,
+            "p99": 0.704,
+            "maximum": 39.746
+          }
+        },
+        "sql": {
+          "count": 401952,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 64.749387,
+          "latency_ms": {
+            "p50": 0.038,
+            "p95": 0.464,
+            "p99": 1.038,
+            "maximum": 51.928
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 69161,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.25226,
+              "latency_ms": {
+                "p50": 0.032,
+                "p95": 0.412,
+                "p99": 0.894,
+                "maximum": 26.609
+              }
+            },
+            "begin": {
+              "count": 4242,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.396415,
+              "latency_ms": {
+                "p50": 0.022,
+                "p95": 0.182,
+                "p99": 0.507,
+                "maximum": 18.027
+              }
+            },
+            "writer_wait": {
+              "count": 4241,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 8.972875,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 9.645,
+                "p99": 27.97,
+                "maximum": 77.66
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "writer_wait": {
+              "count": 4052,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 13.265166,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 22.028,
+                "p99": 38.457,
+                "maximum": 68.878
+              }
+            },
+            "sql": {
+              "count": 66486,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.156154,
+              "latency_ms": {
+                "p50": 0.039,
+                "p95": 0.478,
+                "p99": 1.113,
+                "maximum": 51.928
+              }
+            },
+            "begin": {
+              "count": 4052,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.497743,
+              "latency_ms": {
+                "p50": 0.025,
+                "p95": 0.205,
+                "p99": 0.595,
+                "maximum": 32.511
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "sql": {
+              "count": 67071,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.171063,
+              "latency_ms": {
+                "p50": 0.04,
+                "p95": 0.478,
+                "p99": 1.059,
+                "maximum": 47.572
+              }
+            },
+            "writer_wait": {
+              "count": 4092,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.96844,
+              "latency_ms": {
+                "p50": 0.019,
+                "p95": 17.697,
+                "p99": 34.129,
+                "maximum": 83.776
+              }
+            },
+            "begin": {
+              "count": 4091,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.593598,
+              "latency_ms": {
+                "p50": 0.027,
+                "p95": 0.216,
+                "p99": 0.755,
+                "maximum": 39.746
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "sql": {
+              "count": 67137,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 10.724984,
+              "latency_ms": {
+                "p50": 0.037,
+                "p95": 0.459,
+                "p99": 1.008,
+                "maximum": 35.759
+              }
+            },
+            "begin": {
+              "count": 4110,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.54508,
+              "latency_ms": {
+                "p50": 0.024,
+                "p95": 0.199,
+                "p99": 0.921,
+                "maximum": 23.539
+              }
+            },
+            "writer_wait": {
+              "count": 4110,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 10.963987,
+              "latency_ms": {
+                "p50": 0.019,
+                "p95": 13.394,
+                "p99": 31.833,
+                "maximum": 64.302
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "sql": {
+              "count": 65507,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.524177,
+              "latency_ms": {
+                "p50": 0.041,
+                "p95": 0.483,
+                "p99": 1.08,
+                "maximum": 46.984
+              }
+            },
+            "begin": {
+              "count": 4020,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.5462,
+              "latency_ms": {
+                "p50": 0.026,
+                "p95": 0.229,
+                "p99": 0.711,
+                "maximum": 28.828
+              }
+            },
+            "writer_wait": {
+              "count": 4019,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.604868,
+              "latency_ms": {
+                "p50": 0.017,
+                "p95": 14.649,
+                "p99": 35.87,
+                "maximum": 67.748
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "sql": {
+              "count": 66226,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 10.887893,
+              "latency_ms": {
+                "p50": 0.041,
+                "p95": 0.473,
+                "p99": 1.049,
+                "maximum": 34.191
+              }
+            },
+            "writer_wait": {
+              "count": 4057,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 11.84584,
+              "latency_ms": {
+                "p50": 0.02,
+                "p95": 15.093,
+                "p99": 33.791,
+                "maximum": 82.489
+              }
+            },
+            "begin": {
+              "count": 4057,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.629595,
+              "latency_ms": {
+                "p50": 0.026,
+                "p95": 0.231,
+                "p99": 1.091,
+                "maximum": 29.635
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "writer_wait": {
+              "count": 36,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.017728,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 2.325,
+                "p99": 2.964,
+                "maximum": 2.964
+              }
+            },
+            "sql": {
+              "count": 281,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.024821,
+              "latency_ms": {
+                "p50": 0.041,
+                "p95": 0.403,
+                "p99": 0.843,
+                "maximum": 1.007
+              }
+            },
+            "begin": {
+              "count": 36,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.001055,
+              "latency_ms": {
+                "p50": 0.016,
+                "p95": 0.07,
+                "p99": 0.235,
+                "maximum": 0.235
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 2340,
+        "tasks": 4680,
+        "provider_calls": 2340,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 2526,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 31.169566,
+            "latency_ms": {
+              "p50": 6.741,
+              "p95": 33.125,
+              "p99": 46.46,
+              "maximum": 105.465
+            }
+          },
+          "workflows": {
+            "count": 403,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.378222,
+            "latency_ms": {
+              "p50": 307.712,
+              "p95": 383.014,
+              "p99": 410.643,
+              "maximum": 489.837
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 2443,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.387542,
+            "latency_ms": {
+              "p50": 7.826,
+              "p95": 38.076,
+              "p99": 51.834,
+              "maximum": 112.487
+            }
+          },
+          "workflows": {
+            "count": 386,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.978268,
+            "latency_ms": {
+              "p50": 313.897,
+              "p95": 406.577,
+              "p99": 431.59,
+              "maximum": 512.697
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 2437,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 34.079246,
+            "latency_ms": {
+              "p50": 8.063,
+              "p95": 37.326,
+              "p99": 56.691,
+              "maximum": 101.669
+            }
+          },
+          "workflows": {
+            "count": 394,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.957618,
+            "latency_ms": {
+              "p50": 304.666,
+              "p95": 414.75,
+              "p99": 486.326,
+              "maximum": 567.751
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 2453,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 33.389207,
+            "latency_ms": {
+              "p50": 7.672,
+              "p95": 37.699,
+              "p99": 53.939,
+              "maximum": 94.836
+            }
+          },
+          "workflows": {
+            "count": 390,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.009607,
+            "latency_ms": {
+              "p50": 307.712,
+              "p95": 390.713,
+              "p99": 427.317,
+              "maximum": 449.051
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 2378,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 35.722072,
+            "latency_ms": {
+              "p50": 8.732,
+              "p95": 42.481,
+              "p99": 58.992,
+              "maximum": 100.293
+            }
+          },
+          "workflows": {
+            "count": 381,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 119.840709,
+            "latency_ms": {
+              "p50": 320.207,
+              "p95": 410.643,
+              "p99": 431.59,
+              "maximum": 473.465
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 2407,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 34.910435,
+            "latency_ms": {
+              "p50": 8.308,
+              "p95": 39.622,
+              "p99": 53.405,
+              "maximum": 73.401
+            }
+          },
+          "workflows": {
+            "count": 386,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 120.014886,
+            "latency_ms": {
+              "p50": 313.897,
+              "p95": 402.552,
+              "p99": 435.906,
+              "maximum": 454.079
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 9,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.073372,
+            "latency_ms": {
+              "p50": 4.759,
+              "p95": 23.019,
+              "p99": 23.019,
+              "maximum": 23.019
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 8,
+      "elapsed_seconds": 180.244878,
+      "admission_seconds": 180,
+      "http": {
+        "count": 25943,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 459.62668,
+        "latency_ms": {
+          "p50": 11.887,
+          "p95": 46.925,
+          "p99": 76.41,
+          "maximum": 370.606
+        },
+        "requests_per_second": 143.931968
+      },
+      "workflows": {
+        "count": 3722,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 1439.063016,
+        "latency_ms": {
+          "p50": 379.222,
+          "p95": 531.888,
+          "p99": 892.343,
+          "maximum": 1349.807
+        },
+        "workflows_per_second": 20.649685
+      },
+      "endpoints": {
+        "submit": {
+          "count": 3722,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 96.633622,
+          "latency_ms": {
+            "p50": 16.507,
+            "p95": 67.81,
+            "p99": 118.384,
+            "maximum": 370.606
+          }
+        },
+        "read": {
+          "count": 22221,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 362.993058,
+          "latency_ms": {
+            "p50": 10.761,
+            "p95": 42.481,
+            "p99": 65.816,
+            "maximum": 222.615
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 27192,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 241.499664,
+          "latency_ms": {
+            "p50": 2.619,
+            "p95": 37.326,
+            "p99": 74.163,
+            "maximum": 340.907
+          }
+        },
+        "sqlite_begin": {
+          "count": 27192,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 6.351821,
+          "latency_ms": {
+            "p50": 0.025,
+            "p95": 0.344,
+            "p99": 6.608,
+            "maximum": 96.06
+          }
+        },
+        "sql": {
+          "count": 595444,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 133.038047,
+          "latency_ms": {
+            "p50": 0.046,
+            "p95": 0.572,
+            "p99": 1.625,
+            "maximum": 96.06
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 72926,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 27.651592,
+              "latency_ms": {
+                "p50": 0.069,
+                "p95": 0.931,
+                "p99": 4.14,
+                "maximum": 96.06
+              }
+            },
+            "begin": {
+              "count": 3214,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.195054,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.566,
+                "p99": 9.937,
+                "maximum": 96.06
+              }
+            },
+            "writer_wait": {
+              "count": 3213,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 69.692308,
+              "latency_ms": {
+                "p50": 6.741,
+                "p95": 91.398,
+                "p99": 194.698,
+                "maximum": 340.907
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "sql": {
+              "count": 100425,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 21.871182,
+              "latency_ms": {
+                "p50": 0.046,
+                "p95": 0.56,
+                "p99": 1.372,
+                "maximum": 26.345
+              }
+            },
+            "writer_wait": {
+              "count": 4583,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 37.631402,
+              "latency_ms": {
+                "p50": 2.646,
+                "p95": 37.326,
+                "p99": 60.78,
+                "maximum": 85.001
+              }
+            },
+            "begin": {
+              "count": 4583,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.04269,
+              "latency_ms": {
+                "p50": 0.025,
+                "p95": 0.365,
+                "p99": 6.608,
+                "maximum": 24.681
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "writer_wait": {
+              "count": 4852,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 34.459179,
+              "latency_ms": {
+                "p50": 2.234,
+                "p95": 32.797,
+                "p99": 52.353,
+                "maximum": 90.417
+              }
+            },
+            "sql": {
+              "count": 105866,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 21.356784,
+              "latency_ms": {
+                "p50": 0.043,
+                "p95": 0.533,
+                "p99": 1.318,
+                "maximum": 34.393
+              }
+            },
+            "begin": {
+              "count": 4852,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.064723,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.321,
+                "p99": 6.478,
+                "maximum": 20.794
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "sql": {
+              "count": 106448,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 20.963175,
+              "latency_ms": {
+                "p50": 0.043,
+                "p95": 0.523,
+                "p99": 1.254,
+                "maximum": 23.849
+              }
+            },
+            "writer_wait": {
+              "count": 4867,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 32.582391,
+              "latency_ms": {
+                "p50": 2.325,
+                "p95": 30.59,
+                "p99": 49.812,
+                "maximum": 78.572
+              }
+            },
+            "begin": {
+              "count": 4867,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.961707,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.299,
+                "p99": 4.395,
+                "maximum": 19.567
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "sql": {
+              "count": 105358,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 20.737123,
+              "latency_ms": {
+                "p50": 0.044,
+                "p95": 0.523,
+                "p99": 1.217,
+                "maximum": 22.883
+              }
+            },
+            "writer_wait": {
+              "count": 4832,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 34.292256,
+              "latency_ms": {
+                "p50": 2.302,
+                "p95": 32.472,
+                "p99": 52.353,
+                "maximum": 80.927
+              }
+            },
+            "begin": {
+              "count": 4832,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.043769,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.315,
+                "p99": 6.877,
+                "maximum": 20.506
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "sql": {
+              "count": 103846,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 20.411875,
+              "latency_ms": {
+                "p50": 0.044,
+                "p95": 0.523,
+                "p99": 1.147,
+                "maximum": 27.029
+              }
+            },
+            "writer_wait": {
+              "count": 4784,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 32.738434,
+              "latency_ms": {
+                "p50": 2.19,
+                "p95": 31.833,
+                "p99": 51.834,
+                "maximum": 79.963
+              }
+            },
+            "begin": {
+              "count": 4784,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 1.04265,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.299,
+                "p99": 6.414,
+                "maximum": 24.213
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "sql": {
+              "count": 492,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.031993,
+              "latency_ms": {
+                "p50": 0.026,
+                "p95": 0.315,
+                "p99": 0.572,
+                "maximum": 0.791
+              }
+            },
+            "writer_wait": {
+              "count": 45,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.028664,
+              "latency_ms": {
+                "p50": 0.015,
+                "p95": 3.638,
+                "p99": 4.916,
+                "maximum": 4.916
+              }
+            },
+            "begin": {
+              "count": 45,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.000915,
+              "latency_ms": {
+                "p50": 0.013,
+                "p95": 0.052,
+                "p99": 0.064,
+                "maximum": 0.064
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 3722,
+        "tasks": 7444,
+        "provider_calls": 3722,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 3427,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 98.496218,
+            "latency_ms": {
+              "p50": 18.786,
+              "p95": 83.569,
+              "p99": 147.354,
+              "maximum": 370.606
+            }
+          },
+          "workflows": {
+            "count": 442,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 240.0302,
+            "latency_ms": {
+              "p50": 481.511,
+              "p95": 956.712,
+              "p99": 1251.579,
+              "maximum": 1349.807
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 4374,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 74.836223,
+            "latency_ms": {
+              "p50": 11.769,
+              "p95": 44.206,
+              "p99": 63.248,
+              "maximum": 108.242
+            }
+          },
+          "workflows": {
+            "count": 629,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.954381,
+            "latency_ms": {
+              "p50": 379.222,
+              "p95": 501.063,
+              "p99": 531.888,
+              "maximum": 549.506
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 4562,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 70.095707,
+            "latency_ms": {
+              "p50": 10.137,
+              "p95": 40.419,
+              "p99": 60.178,
+              "maximum": 117.305
+            }
+          },
+          "workflows": {
+            "count": 667,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.954775,
+            "latency_ms": {
+              "p50": 357.244,
+              "p95": 472.024,
+              "p99": 506.073,
+              "maximum": 514.641
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 4572,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 70.63243,
+            "latency_ms": {
+              "p50": 10.549,
+              "p95": 39.622,
+              "p99": 55.574,
+              "maximum": 103.047
+            }
+          },
+          "workflows": {
+            "count": 672,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.783651,
+            "latency_ms": {
+              "p50": 357.244,
+              "p95": 458.142,
+              "p99": 491.19,
+              "maximum": 507.296
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 4515,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 72.491341,
+            "latency_ms": {
+              "p50": 10.977,
+              "p95": 40.823,
+              "p99": 60.78,
+              "maximum": 98.658
+            }
+          },
+          "workflows": {
+            "count": 664,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.750434,
+            "latency_ms": {
+              "p50": 360.817,
+              "p95": 472.024,
+              "p99": 496.102,
+              "maximum": 538.341
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 4476,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 72.89312,
+            "latency_ms": {
+              "p50": 10.868,
+              "p95": 41.644,
+              "p99": 63.248,
+              "maximum": 113.813
+            }
+          },
+          "workflows": {
+            "count": 648,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 239.589575,
+            "latency_ms": {
+              "p50": 375.467,
+              "p95": 481.511,
+              "p99": 516.245,
+              "maximum": 549.848
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 17,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.181641,
+            "latency_ms": {
+              "p50": 5.749,
+              "p95": 27.423,
+              "p99": 27.423,
+              "maximum": 27.423
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    },
+    {
+      "concurrency": 1,
+      "elapsed_seconds": 180.006086,
+      "admission_seconds": 180,
+      "http": {
+        "count": 3987,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 44.572412,
+        "latency_ms": {
+          "p50": 6.042,
+          "p95": 27.97,
+          "p99": 34.47,
+          "maximum": 46.653
+        },
+        "requests_per_second": 22.149251
+      },
+      "workflows": {
+        "count": 652,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 179.979656,
+        "latency_ms": {
+          "p50": 278.568,
+          "p95": 353.707,
+          "p99": 379.222,
+          "maximum": 399.805
+        },
+        "workflows_per_second": 3.6221
+      },
+      "endpoints": {
+        "submit": {
+          "count": 652,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 8.336022,
+          "latency_ms": {
+            "p50": 7.596,
+            "p95": 29.397,
+            "p99": 38.842,
+            "maximum": 44.462
+          }
+        },
+        "read": {
+          "count": 3335,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 36.23639,
+          "latency_ms": {
+            "p50": 5.051,
+            "p95": 27.693,
+            "p99": 33.791,
+            "maximum": 46.653
+          }
+        }
+      },
+      "database": {
+        "writer_wait": {
+          "count": 19601,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 16.798426,
+          "latency_ms": {
+            "p50": 0.018,
+            "p95": 3.26,
+            "p99": 18.786,
+            "maximum": 35.591
+          }
+        },
+        "sqlite_begin": {
+          "count": 19601,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 1.023733,
+          "latency_ms": {
+            "p50": 0.023,
+            "p95": 0.088,
+            "p99": 0.271,
+            "maximum": 21.067
+          }
+        },
+        "sql": {
+          "count": 176469,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 18.753539,
+          "latency_ms": {
+            "p50": 0.036,
+            "p95": 0.291,
+            "p99": 0.818,
+            "maximum": 21.929
+          }
+        },
+        "busy_errors": 0,
+        "windows": [
+          {
+            "start_seconds": 0,
+            "sql": {
+              "count": 28981,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.00768,
+              "latency_ms": {
+                "p50": 0.034,
+                "p95": 0.285,
+                "p99": 0.818,
+                "maximum": 19.774
+              }
+            },
+            "begin": {
+              "count": 3237,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.189212,
+              "latency_ms": {
+                "p50": 0.022,
+                "p95": 0.084,
+                "p99": 0.255,
+                "maximum": 17.373
+              }
+            },
+            "writer_wait": {
+              "count": 3236,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.989281,
+              "latency_ms": {
+                "p50": 0.02,
+                "p95": 3.427,
+                "p99": 19.744,
+                "maximum": 26.302
+              }
+            }
+          },
+          {
+            "start_seconds": 30,
+            "writer_wait": {
+              "count": 3274,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.343024,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 2.836,
+                "p99": 8.391,
+                "maximum": 31.611
+              }
+            },
+            "sql": {
+              "count": 29476,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.178603,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.291,
+                "p99": 0.794,
+                "maximum": 21.067
+              }
+            },
+            "begin": {
+              "count": 3274,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.16458,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.076,
+                "p99": 0.25,
+                "maximum": 21.067
+              }
+            }
+          },
+          {
+            "start_seconds": 60,
+            "sql": {
+              "count": 29590,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.152076,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.296,
+                "p99": 0.81,
+                "maximum": 20.759
+              }
+            },
+            "writer_wait": {
+              "count": 3273,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.679758,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 3.427,
+                "p99": 9.937,
+                "maximum": 26.536
+              }
+            },
+            "begin": {
+              "count": 3273,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.183051,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.093,
+                "p99": 0.279,
+                "maximum": 14.594
+              }
+            }
+          },
+          {
+            "start_seconds": 90,
+            "writer_wait": {
+              "count": 3248,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.626246,
+              "latency_ms": {
+                "p50": 0.019,
+                "p95": 2.981,
+                "p99": 17.177,
+                "maximum": 25.958
+              }
+            },
+            "sql": {
+              "count": 29076,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.078062,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.293,
+                "p99": 0.826,
+                "maximum": 21.929
+              }
+            },
+            "begin": {
+              "count": 3248,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.182486,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.099,
+                "p99": 0.255,
+                "maximum": 18.116
+              }
+            }
+          },
+          {
+            "start_seconds": 120,
+            "writer_wait": {
+              "count": 3275,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 2.949328,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 3.393,
+                "p99": 20.141,
+                "maximum": 35.591
+              }
+            },
+            "sql": {
+              "count": 29499,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.046828,
+              "latency_ms": {
+                "p50": 0.036,
+                "p95": 0.296,
+                "p99": 0.802,
+                "maximum": 20.465
+              }
+            },
+            "begin": {
+              "count": 3275,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.154568,
+              "latency_ms": {
+                "p50": 0.023,
+                "p95": 0.096,
+                "p99": 0.311,
+                "maximum": 15.53
+              }
+            }
+          },
+          {
+            "start_seconds": 150,
+            "writer_wait": {
+              "count": 3267,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.174994,
+              "latency_ms": {
+                "p50": 0.018,
+                "p95": 3.427,
+                "p99": 21.38,
+                "maximum": 27.2
+              }
+            },
+            "sql": {
+              "count": 29697,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 3.276379,
+              "latency_ms": {
+                "p50": 0.037,
+                "p95": 0.282,
+                "p99": 0.834,
+                "maximum": 21.372
+              }
+            },
+            "begin": {
+              "count": 3267,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.149617,
+              "latency_ms": {
+                "p50": 0.024,
+                "p95": 0.085,
+                "p99": 0.243,
+                "maximum": 16.995
+              }
+            }
+          },
+          {
+            "start_seconds": 180,
+            "sql": {
+              "count": 67,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.006012,
+              "latency_ms": {
+                "p50": 0.024,
+                "p95": 0.544,
+                "p99": 0.668,
+                "maximum": 0.668
+              }
+            },
+            "writer_wait": {
+              "count": 12,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 0.006542,
+              "latency_ms": {
+                "p50": 0.008,
+                "p95": 2.346,
+                "p99": 2.346,
+                "maximum": 2.346
+              }
+            },
+            "begin": {
+              "count": 12,
+              "errors": 0,
+              "failure_rate": 0.0,
+              "error_types": {},
+              "total_seconds": 9.5e-05,
+              "latency_ms": {
+                "p50": 0.007,
+                "p95": 0.013,
+                "p99": 0.013,
+                "maximum": 0.013
+              }
+            }
+          }
+        ]
+      },
+      "verification": {
+        "passed": true,
+        "checks": {
+          "nonempty": true,
+          "workflow_ids": true,
+          "workflow_success": true,
+          "node_set": true,
+          "outputs_attempts_events": true,
+          "provider_exactly_once": true,
+          "integrity": true,
+          "foreign_keys": true
+        },
+        "invalid_tasks": [],
+        "workflows": 652,
+        "tasks": 1304,
+        "provider_calls": 652,
+        "integrity": "ok"
+      },
+      "lifecycle_errors": [],
+      "failures": [],
+      "windows": [
+        {
+          "start_seconds": 0,
+          "http": {
+            "count": 655,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 7.533469,
+            "latency_ms": {
+              "p50": 6.414,
+              "p95": 29.691,
+              "p99": 36.591,
+              "maximum": 43.054
+            }
+          },
+          "workflows": {
+            "count": 105,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.174912,
+            "latency_ms": {
+              "p50": 298.662,
+              "p95": 357.244,
+              "p99": 379.222,
+              "maximum": 381.009
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "http": {
+            "count": 664,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 7.477444,
+            "latency_ms": {
+              "p50": 6.164,
+              "p95": 27.419,
+              "p99": 34.129,
+              "maximum": 44.462
+            }
+          },
+          "workflows": {
+            "count": 109,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.809949,
+            "latency_ms": {
+              "p50": 278.568,
+              "p95": 350.205,
+              "p99": 386.844,
+              "maximum": 387.543
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "http": {
+            "count": 670,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 7.390432,
+            "latency_ms": {
+              "p50": 5.865,
+              "p95": 27.693,
+              "p99": 35.163,
+              "maximum": 44.378
+            }
+          },
+          "workflows": {
+            "count": 111,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.366068,
+            "latency_ms": {
+              "p50": 275.81,
+              "p95": 357.244,
+              "p99": 371.75,
+              "maximum": 399.805
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "http": {
+            "count": 657,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 7.417671,
+            "latency_ms": {
+              "p50": 6.042,
+              "p95": 27.97,
+              "p99": 33.456,
+              "maximum": 42.386
+            }
+          },
+          "workflows": {
+            "count": 105,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.852605,
+            "latency_ms": {
+              "p50": 289.879,
+              "p95": 353.707,
+              "p99": 371.75,
+              "maximum": 389.737
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "http": {
+            "count": 662,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 7.797245,
+            "latency_ms": {
+              "p50": 6.414,
+              "p95": 28.25,
+              "p99": 33.456,
+              "maximum": 38.607
+            }
+          },
+          "workflows": {
+            "count": 111,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 30.110929,
+            "latency_ms": {
+              "p50": 265.048,
+              "p95": 353.707,
+              "p99": 368.069,
+              "maximum": 373.848
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "http": {
+            "count": 678,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 6.950499,
+            "latency_ms": {
+              "p50": 5.47,
+              "p95": 26.349,
+              "p99": 35.87,
+              "maximum": 46.653
+            }
+          },
+          "workflows": {
+            "count": 111,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 29.665193,
+            "latency_ms": {
+              "p50": 259.825,
+              "p95": 346.738,
+              "p99": 361.951,
+              "maximum": 361.951
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "http": {
+            "count": 1,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.005652,
+            "latency_ms": {
+              "p50": 5.652,
+              "p95": 5.652,
+              "p99": 5.652,
+              "maximum": 5.652
+            }
+          },
+          "workflows": {
+            "count": 0,
+            "errors": 0,
+            "failure_rate": 0,
+            "error_types": {},
+            "total_seconds": 0.0,
+            "latency_ms": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "p99": 0.0,
+              "maximum": 0.0
+            }
+          }
+        }
+      ],
+      "round": 2,
+      "failure_reasons": [],
+      "passed": true
+    }
+  ],
+  "failure_reasons": [],
+  "passed": true,
+  "baseline_sha256": "f236a7ffe4f89ba4f03d6e9f2d6635f03cdf9cb68eeaa8ef8232688a7312e70a",
+  "complete": true
+}

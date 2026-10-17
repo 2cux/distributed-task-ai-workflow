@@ -1,0 +1,982 @@
+{
+  "run": {
+    "concurrency": 8,
+    "elapsed_seconds": 180.359209,
+    "admission_seconds": 180,
+    "http": {
+      "count": 21590,
+      "errors": 0,
+      "failure_rate": 0.0,
+      "error_types": {},
+      "total_seconds": 523.344444,
+      "latency_ms": {
+        "p50": 15.55,
+        "p95": 74.163,
+        "p99": 132.077,
+        "maximum": 583.102
+      },
+      "requests_per_second": 119.70556
+    },
+    "workflows": {
+      "count": 2094,
+      "errors": 0,
+      "failure_rate": 0.0,
+      "error_types": {},
+      "total_seconds": 1440.304573,
+      "latency_ms": {
+        "p50": 642.579,
+        "p95": 1155.813,
+        "p99": 1410.311,
+        "maximum": 1888.18
+      },
+      "workflows_per_second": 11.610164
+    },
+    "endpoints": {
+      "submit": {
+        "count": 2094,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 153.32656,
+        "latency_ms": {
+          "p50": 67.139,
+          "p95": 156.42,
+          "p99": 215.068,
+          "maximum": 259.621
+        }
+      },
+      "read": {
+        "count": 19496,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 370.017884,
+        "latency_ms": {
+          "p50": 13.8,
+          "p95": 49.812,
+          "p99": 73.429,
+          "maximum": 583.102
+        }
+      }
+    },
+    "database": {
+      "writer_wait": {
+        "count": 13319,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 561.599577,
+        "latency_ms": {
+          "p50": 32.472,
+          "p95": 117.212,
+          "p99": 169.38,
+          "maximum": 581.654
+        }
+      },
+      "sqlite_begin": {
+        "count": 14709,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 28.148993,
+        "latency_ms": {
+          "p50": 0.019,
+          "p95": 12.744,
+          "p99": 38.076,
+          "maximum": 472.804
+        }
+      },
+      "sql": {
+        "count": 413189,
+        "errors": 0,
+        "failure_rate": 0.0,
+        "error_types": {},
+        "total_seconds": 122.579001,
+        "latency_ms": {
+          "p50": 0.063,
+          "p95": 0.885,
+          "p99": 2.395,
+          "maximum": 472.804
+        }
+      },
+      "busy_errors": 0,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "sql": {
+            "count": 81994,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 17.474337,
+            "latency_ms": {
+              "p50": 0.043,
+              "p95": 0.631,
+              "p99": 1.849,
+              "maximum": 269.255
+            }
+          },
+          "begin": {
+            "count": 3006,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 4.247,
+            "latency_ms": {
+              "p50": 0.011,
+              "p95": 8.56,
+              "p99": 29.691,
+              "maximum": 269.255
+            }
+          },
+          "writer_wait": {
+            "count": 2777,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 82.71742,
+            "latency_ms": {
+              "p50": 23.853,
+              "p95": 77.946,
+              "p99": 112.638,
+              "maximum": 181.052
+            }
+          }
+        },
+        {
+          "start_seconds": 30,
+          "writer_wait": {
+            "count": 2519,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 88.840399,
+            "latency_ms": {
+              "p50": 28.818,
+              "p95": 91.398,
+              "p99": 125.667,
+              "maximum": 154.135
+            }
+          },
+          "sql": {
+            "count": 76095,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 18.125544,
+            "latency_ms": {
+              "p50": 0.052,
+              "p95": 0.719,
+              "p99": 2.043,
+              "maximum": 131.385
+            }
+          },
+          "begin": {
+            "count": 2751,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 4.211711,
+            "latency_ms": {
+              "p50": 0.015,
+              "p95": 10.549,
+              "p99": 32.151,
+              "maximum": 131.385
+            }
+          }
+        },
+        {
+          "start_seconds": 60,
+          "writer_wait": {
+            "count": 1941,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 98.785225,
+            "latency_ms": {
+              "p50": 43.335,
+              "p95": 121.971,
+              "p99": 162.771,
+              "maximum": 224.887
+            }
+          },
+          "sql": {
+            "count": 62814,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 21.176173,
+            "latency_ms": {
+              "p50": 0.084,
+              "p95": 0.949,
+              "p99": 2.672,
+              "maximum": 132.277
+            }
+          },
+          "begin": {
+            "count": 2164,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 4.475263,
+            "latency_ms": {
+              "p50": 0.025,
+              "p95": 13.663,
+              "p99": 44.206,
+              "maximum": 132.277
+            }
+          }
+        },
+        {
+          "start_seconds": 90,
+          "sql": {
+            "count": 56334,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 22.943124,
+            "latency_ms": {
+              "p50": 0.106,
+              "p95": 1.124,
+              "p99": 3.041,
+              "maximum": 136.195
+            }
+          },
+          "begin": {
+            "count": 1894,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 5.243415,
+            "latency_ms": {
+              "p50": 0.028,
+              "p95": 16.181,
+              "p99": 53.405,
+              "maximum": 136.195
+            }
+          },
+          "writer_wait": {
+            "count": 1667,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 103.445513,
+            "latency_ms": {
+              "p50": 50.813,
+              "p95": 148.828,
+              "p99": 196.645,
+              "maximum": 225.73
+            }
+          }
+        },
+        {
+          "start_seconds": 120,
+          "sql": {
+            "count": 52883,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 25.170773,
+            "latency_ms": {
+              "p50": 0.12,
+              "p95": 1.305,
+              "p99": 3.326,
+              "maximum": 472.804
+            }
+          },
+          "begin": {
+            "count": 1775,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 5.904881,
+            "latency_ms": {
+              "p50": 0.032,
+              "p95": 16.839,
+              "p99": 56.129,
+              "maximum": 472.804
+            }
+          },
+          "writer_wait": {
+            "count": 1551,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 104.451825,
+            "latency_ms": {
+              "p50": 53.405,
+              "p95": 167.703,
+              "p99": 230.582,
+              "maximum": 292.704
+            }
+          }
+        },
+        {
+          "start_seconds": 150,
+          "sql": {
+            "count": 82293,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 17.522819,
+            "latency_ms": {
+              "p50": 0.044,
+              "p95": 0.631,
+              "p99": 1.849,
+              "maximum": 90.402
+            }
+          },
+          "writer_wait": {
+            "count": 2816,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 83.116416,
+            "latency_ms": {
+              "p50": 22.028,
+              "p95": 74.163,
+              "p99": 99.961,
+              "maximum": 581.654
+            }
+          },
+          "begin": {
+            "count": 3045,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 3.977975,
+            "latency_ms": {
+              "p50": 0.01,
+              "p95": 7.826,
+              "p99": 30.288,
+              "maximum": 81.854
+            }
+          }
+        },
+        {
+          "start_seconds": 180,
+          "sql": {
+            "count": 709,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.118641,
+            "latency_ms": {
+              "p50": 0.026,
+              "p95": 0.478,
+              "p99": 1.924,
+              "maximum": 14.838
+            }
+          },
+          "begin": {
+            "count": 62,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.050744,
+            "latency_ms": {
+              "p50": 0.009,
+              "p95": 7.085,
+              "p99": 14.838,
+              "maximum": 14.838
+            }
+          },
+          "writer_wait": {
+            "count": 43,
+            "errors": 0,
+            "failure_rate": 0.0,
+            "error_types": {},
+            "total_seconds": 0.242735,
+            "latency_ms": {
+              "p50": 2.672,
+              "p95": 18.416,
+              "p99": 55.861,
+              "maximum": 55.861
+            }
+          }
+        }
+      ]
+    },
+    "verification": {
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "workflow_ids": true,
+        "workflow_success": true,
+        "node_set": true,
+        "outputs_attempts_events": true,
+        "provider_exactly_once": true,
+        "integrity": true,
+        "foreign_keys": true
+      },
+      "invalid_tasks": [],
+      "workflows": 2094,
+      "tasks": 4188,
+      "provider_calls": 2094,
+      "integrity": "ok"
+    },
+    "lifecycle_errors": [],
+    "failures": [],
+    "windows": [
+      {
+        "start_seconds": 0,
+        "http": {
+          "count": 4008,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 75.193332,
+          "latency_ms": {
+            "p50": 11.198,
+            "p95": 57.83,
+            "p99": 104.02,
+            "maximum": 177.732
+          }
+        },
+        "workflows": {
+          "count": 438,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 241.213551,
+          "latency_ms": {
+            "p50": 548.005,
+            "p95": 724.074,
+            "p99": 784.068,
+            "maximum": 813.256
+          }
+        }
+      },
+      {
+        "start_seconds": 30,
+        "http": {
+          "count": 3813,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 81.819608,
+          "latency_ms": {
+            "p50": 13.394,
+            "p95": 65.164,
+            "p99": 113.765,
+            "maximum": 238.835
+          }
+        },
+        "workflows": {
+          "count": 397,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 241.459985,
+          "latency_ms": {
+            "p50": 611.392,
+            "p95": 883.508,
+            "p99": 985.702,
+            "maximum": 1022.943
+          }
+        }
+      },
+      {
+        "start_seconds": 60,
+        "http": {
+          "count": 3461,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 89.886827,
+          "latency_ms": {
+            "p50": 16.181,
+            "p95": 84.405,
+            "p99": 136.079,
+            "maximum": 231.668
+          }
+        },
+        "workflows": {
+          "count": 308,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 242.935587,
+          "latency_ms": {
+            "p50": 799.828,
+            "p95": 1121.82,
+            "p99": 1239.188,
+            "maximum": 1256.147
+          }
+        }
+      },
+      {
+        "start_seconds": 90,
+        "http": {
+          "count": 3255,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 95.487404,
+          "latency_ms": {
+            "p50": 19.355,
+            "p95": 83.569,
+            "p99": 161.159,
+            "maximum": 252.874
+          }
+        },
+        "workflows": {
+          "count": 261,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 235.552432,
+          "latency_ms": {
+            "p50": 901.266,
+            "p95": 1239.188,
+            "p99": 1302.399,
+            "maximum": 1463.622
+          }
+        }
+      },
+      {
+        "start_seconds": 120,
+        "http": {
+          "count": 3091,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 100.121056,
+          "latency_ms": {
+            "p50": 22.696,
+            "p95": 95.109,
+            "p99": 172.785,
+            "maximum": 268.562
+          }
+        },
+        "workflows": {
+          "count": 248,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 240.322007,
+          "latency_ms": {
+            "p50": 947.24,
+            "p95": 1527.165,
+            "p99": 1670.238,
+            "maximum": 1888.18
+          }
+        }
+      },
+      {
+        "start_seconds": 150,
+        "http": {
+          "count": 3944,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 80.566369,
+          "latency_ms": {
+            "p50": 12.125,
+            "p95": 62.622,
+            "p99": 105.06,
+            "maximum": 583.102
+          }
+        },
+        "workflows": {
+          "count": 442,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 238.821012,
+          "latency_ms": {
+            "p50": 526.622,
+            "p95": 731.315,
+            "p99": 975.942,
+            "maximum": 1145.705
+          }
+        }
+      },
+      {
+        "start_seconds": 180,
+        "http": {
+          "count": 18,
+          "errors": 0,
+          "failure_rate": 0.0,
+          "error_types": {},
+          "total_seconds": 0.269848,
+          "latency_ms": {
+            "p50": 8.391,
+            "p95": 34.163,
+            "p99": 34.163,
+            "maximum": 34.163
+          }
+        },
+        "workflows": {
+          "count": 0,
+          "errors": 0,
+          "failure_rate": 0,
+          "error_types": {},
+          "total_seconds": 0.0,
+          "latency_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "maximum": 0.0
+          }
+        }
+      }
+    ]
+  },
+  "sql": [
+    {
+      "sql": "connection_enter.SQLiteTaskStore",
+      "count": 34909,
+      "total_seconds": 233.07724679985768,
+      "max_ms": 561.6569000012532
+    },
+    {
+      "sql": "connection_exit.SQLiteTaskStore",
+      "count": 34908,
+      "total_seconds": 49.718069600010494,
+      "max_ms": 538.0282999994961
+    },
+    {
+      "sql": "BEGIN IMMEDIATE",
+      "count": 14709,
+      "total_seconds": 28.60058260009646,
+      "max_ms": 472.8610000001936
+    },
+    {
+      "sql": "COMMIT",
+      "count": 14708,
+      "total_seconds": 20.319579399993017,
+      "max_ms": 90.4408999995212
+    },
+    {
+      "sql": "SELECT e.* FROM task_events e JOIN workflow_nodes n ON n.task_id=e.task_id WHERE n.workflow_id=? AND n.is_llm=1 AND e.event_type IN ('SUCCEEDED','FAILED','INTERRUPTED','MANUAL_RESOLUTION','RESTORED') ORDER BY e.task_id,e.sequence",
+      "count": 31255,
+      "total_seconds": 11.191425000100935,
+      "max_ms": 63.76350000027742
+    },
+    {
+      "sql": "SELECT t.id,t.status,t.attempt_count,t.result FROM tasks t JOIN workflow_nodes n ON n.task_id=t.id WHERE n.workflow_id=? AND n.is_llm=1",
+      "count": 31255,
+      "total_seconds": 10.09213270004875,
+      "max_ms": 41.87819999970088
+    },
+    {
+      "sql": "SELECT * FROM workflow_runs WHERE id=?",
+      "count": 38826,
+      "total_seconds": 8.562050799933786,
+      "max_ms": 48.70669999945676
+    },
+    {
+      "sql": "SELECT n.*, t.status AS task_status, t.result,t.error AS task_error,t.attempt_count,t.retry_count FROM workflow_nodes n JOIN tasks t ON t.id=n.task_id WHERE n.workflow_id=? ORDER BY n.rowid",
+      "count": 21590,
+      "total_seconds": 8.192520499958846,
+      "max_ms": 44.85209999984363
+    },
+    {
+      "sql": "connection_enter.WorkerRegistry",
+      "count": 1390,
+      "total_seconds": 7.586413300021377,
+      "max_ms": 512.1603999996296
+    },
+    {
+      "sql": "SELECT source FROM recovery_holds WHERE scope=? AND target_id=? ORDER BY source",
+      "count": 21590,
+      "total_seconds": 7.484762200097975,
+      "max_ms": 54.66049999995448
+    },
+    {
+      "sql": "PRAGMA busy_timeout=10000",
+      "count": 21590,
+      "total_seconds": 5.862572900194209,
+      "max_ms": 49.472500000774744
+    },
+    {
+      "sql": "BEGIN",
+      "count": 21590,
+      "total_seconds": 4.653773800013369,
+      "max_ms": 35.826400000587455
+    },
+    {
+      "sql": "SELECT s.* FROM worker_sessions s JOIN worker_registry r ON r.worker_id=s.worker_id AND r.session_id=s.session_id WHERE s.worker_id=? AND s.session_id=?",
+      "count": 10547,
+      "total_seconds": 2.437871199932488,
+      "max_ms": 49.27040000075067
+    },
+    {
+      "sql": "SELECT * FROM tasks WHERE status IN ('PENDING','RETRYING') AND workflow_blocked=0 AND NOT EXISTS (SELECT 1 FROM recovery_holds h WHERE (h.scope='task' AND h.target_id=tasks.id) OR (h.scope='workflow' AND EXISTS (SELECT 1 FROM workflow_nodes n WHERE n.task_id=tasks.id AND n.workflow_id=h.target_id))) AND json_extract(definition,'$.handler') IN (SELECT value FROM json_each(?)) AND (retry_at IS NULL OR retry_at<=?) AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?) ORDER BY json_extract(definition, '$.priority') DESC, sequence LIMIT 1",
+      "count": 5659,
+      "total_seconds": 2.069427900021765,
+      "max_ms": 16.716899999664747
+    },
+    {
+      "sql": "INSERT INTO task_events VALUES (?,?,?,?,?,?,?,?,?)",
+      "count": 16752,
+      "total_seconds": 1.7346174001104373,
+      "max_ms": 8.90140000046813
+    },
+    {
+      "sql": "SELECT * FROM task_events WHERE task_id=? AND sequence>? ORDER BY sequence",
+      "count": 12564,
+      "total_seconds": 1.5823601000083727,
+      "max_ms": 26.707199998782016
+    },
+    {
+      "sql": "SELECT COALESCE(MAX(sequence),0)+1 FROM task_events WHERE task_id=?",
+      "count": 16752,
+      "total_seconds": 1.5122498000419,
+      "max_ms": 5.7655000000522705
+    },
+    {
+      "sql": "SELECT * FROM tasks WHERE id=?",
+      "count": 16752,
+      "total_seconds": 1.4932191000443709,
+      "max_ms": 3.7317000005714362
+    },
+    {
+      "sql": "SELECT * FROM worker_sessions WHERE session_id=?",
+      "count": 11255,
+      "total_seconds": 1.4234219000136363,
+      "max_ms": 17.525499999464955
+    },
+    {
+      "sql": "UPDATE tasks SET status=?, retry_count=?, result=?, error=?, last_error=?, retry_at=?, owner=NULL, worker_session=NULL, sequence=(SELECT MAX(sequence)+1 FROM tasks) WHERE id=? AND status='RUNNING' AND owner=? AND attempt_count=? AND (worker_session IS NULL OR EXISTS (SELECT 1 FROM worker_sessions WHERE session_id=tasks.worker_session AND state IN ('ACTIVE','SUSPECT','STOPPING')))",
+      "count": 4188,
+      "total_seconds": 1.3768035000484815,
+      "max_ms": 19.571999999243417
+    },
+    {
+      "sql": "SELECT id FROM workflow_runs WHERE status!='SUCCESS' ORDER BY rowid",
+      "count": 688,
+      "total_seconds": 1.0596132000173384,
+      "max_ms": 25.968800000555348
+    },
+    {
+      "sql": "SELECT * FROM tasks WHERE id=? AND status=? AND attempt_count=? AND retry_count=? AND workflow_blocked=0 AND NOT EXISTS (SELECT 1 FROM recovery_holds h WHERE (h.scope='task' AND h.target_id=tasks.id) OR (h.scope='workflow' AND EXISTS (SELECT 1 FROM workflow_nodes n WHERE n.task_id=tasks.id AND n.workflow_id=h.target_id))) AND (retry_at IS NULL OR retry_at<=?) AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)",
+      "count": 4188,
+      "total_seconds": 0.9487805999360717,
+      "max_ms": 4.004899999927147
+    },
+    {
+      "sql": "connection_exit.WorkerRegistry",
+      "count": 1390,
+      "total_seconds": 0.8784394000231259,
+      "max_ms": 32.928299999184674
+    },
+    {
+      "sql": "UPDATE tasks SET status='RUNNING', owner=?, worker_session=?, attempt_count=attempt_count+1, result=NULL, error=NULL, retry_at=NULL WHERE id=? AND status=? AND attempt_count=? AND retry_count=? AND workflow_blocked=0 AND NOT EXISTS (SELECT 1 FROM recovery_holds h WHERE (h.scope='task' AND h.target_id=tasks.id) OR (h.scope='workflow' AND EXISTS (SELECT 1 FROM workflow_nodes n WHERE n.task_id=tasks.id AND n.workflow_id=h.target_id))) AND (retry_at IS NULL OR retry_at<=?) AND (status!='PENDING' OR scheduled_at IS NULL OR scheduled_at<=?)",
+      "count": 4188,
+      "total_seconds": 0.8174137000496557,
+      "max_ms": 2.575099999376107
+    },
+    {
+      "sql": "SELECT * FROM worker_sessions WHERE state IN ('ACTIVE','STOPPING') AND last_heartbeat_at+heartbeat_timeout<?",
+      "count": 1375,
+      "total_seconds": 0.7584983000560896,
+      "max_ms": 39.72809999868332
+    },
+    {
+      "sql": "SELECT n.*, t.status AS task_status, t.result, t.definition AS task_definition, t.workflow_blocked FROM workflow_nodes n JOIN tasks t ON n.task_id=t.id WHERE n.workflow_id=?",
+      "count": 7571,
+      "total_seconds": 0.7552305001881905,
+      "max_ms": 7.013699998424272
+    },
+    {
+      "sql": "SELECT w.* FROM workflow_runs w JOIN workflow_nodes n ON n.workflow_id=w.id WHERE n.task_id=? AND n.is_llm=1",
+      "count": 4188,
+      "total_seconds": 0.729343599970889,
+      "max_ms": 2.95659999937925
+    },
+    {
+      "sql": "UPDATE workflow_nodes SET state=?, error=? WHERE workflow_id=? AND node_id=?",
+      "count": 15142,
+      "total_seconds": 0.6566964000194275,
+      "max_ms": 4.036299998915638
+    },
+    {
+      "sql": "INSERT INTO tasks(id, definition, status, retry_limit, retry_config, scheduled_at, workflow_blocked) VALUES(?,?,?,?,?,?,?)",
+      "count": 4188,
+      "total_seconds": 0.554810500027088,
+      "max_ms": 3.3516999992571073
+    },
+    {
+      "sql": "INSERT INTO workflow_nodes (workflow_id,node_id,task_id,state,error,is_llm) VALUES(?,?,?,?,NULL,?)",
+      "count": 4188,
+      "total_seconds": 0.5380855000094016,
+      "max_ms": 2.6175000002695015
+    },
+    {
+      "sql": "SELECT n.*, t.status AS task_status, t.result, t.error AS task_error, t.attempt_count, t.retry_count FROM workflow_nodes n JOIN tasks t ON n.task_id=t.id WHERE n.workflow_id=?",
+      "count": 7571,
+      "total_seconds": 0.4576083000501967,
+      "max_ms": 3.5741000010602875
+    },
+    {
+      "sql": "SELECT 1 FROM tasks WHERE id=?",
+      "count": 4188,
+      "total_seconds": 0.44463719993473205,
+      "max_ms": 2.269999999043648
+    },
+    {
+      "sql": "SELECT 1 FROM recovery_holds WHERE scope='workflow' AND target_id=?",
+      "count": 7571,
+      "total_seconds": 0.3827504999735538,
+      "max_ms": 2.6694999996834667
+    },
+    {
+      "sql": "SELECT * FROM recovery_incidents WHERE task_id=? AND attempt_count=? AND state='OPEN' AND kind='RECOVERY_ERROR' AND reason LIKE 'handler unavailable:%'",
+      "count": 4119,
+      "total_seconds": 0.37884329996450106,
+      "max_ms": 4.446400000233552
+    },
+    {
+      "sql": "UPDATE workflow_runs SET status=? WHERE id=?",
+      "count": 7571,
+      "total_seconds": 0.3782410999683634,
+      "max_ms": 2.087299999402603
+    },
+    {
+      "sql": "INSERT INTO workflow_runs VALUES(?,?,?)",
+      "count": 2094,
+      "total_seconds": 0.32767889997558086,
+      "max_ms": 8.447099999102647
+    },
+    {
+      "sql": "UPDATE worker_sessions SET last_heartbeat_at=MAX(last_heartbeat_at,?), state=? WHERE session_id=?",
+      "count": 687,
+      "total_seconds": 0.324543700005961,
+      "max_ms": 54.04099999941536
+    },
+    {
+      "sql": "UPDATE tasks SET definition=?, workflow_blocked=0 WHERE id=?",
+      "count": 4188,
+      "total_seconds": 0.30104389997904946,
+      "max_ms": 2.4604999998700805
+    },
+    {
+      "sql": "UPDATE worker_registry SET last_heartbeat_at=MAX(last_heartbeat_at, ?) WHERE worker_id=? AND session_id=? AND status='ACTIVE'",
+      "count": 687,
+      "total_seconds": 0.23427250001986977,
+      "max_ms": 35.28750000077707
+    },
+    {
+      "sql": "SELECT * FROM worker_registry WHERE worker_id=?",
+      "count": 691,
+      "total_seconds": 0.2148404999934428,
+      "max_ms": 73.33069999913278
+    },
+    {
+      "sql": "SELECT t.* FROM tasks t JOIN worker_sessions s ON t.worker_session=s.session_id WHERE t.status='RUNNING' AND s.state='STOPPED' AND s.stopped_evidence IS NOT NULL ORDER BY t.sequence",
+      "count": 688,
+      "total_seconds": 0.20573419997163,
+      "max_ms": 9.834099999352475
+    },
+    {
+      "sql": "SELECT * FROM tasks WHERE status IN ('PENDING','RETRYING')",
+      "count": 688,
+      "total_seconds": 0.17537920000722806,
+      "max_ms": 3.6456999987422023
+    },
+    {
+      "sql": "SELECT i.* FROM recovery_incidents i JOIN tasks t ON t.id=i.task_id WHERE i.state='OPEN' AND i.kind='WAIT_STOP' AND t.status IN ('SUCCESS','RETRYING') AND t.attempt_count=i.attempt_count",
+      "count": 688,
+      "total_seconds": 0.17222579998269794,
+      "max_ms": 5.2443999993556645
+    },
+    {
+      "sql": "RELEASE recover_workflow",
+      "count": 5477,
+      "total_seconds": 0.14845909993709938,
+      "max_ms": 2.1372999999584863
+    },
+    {
+      "sql": "SELECT * FROM worker_sessions WHERE state='SUSPECT' AND last_heartbeat_at+heartbeat_timeout+?<=?",
+      "count": 688,
+      "total_seconds": 0.1425682000190136,
+      "max_ms": 6.221300000106567
+    },
+    {
+      "sql": "SELECT * FROM recovery_incidents WHERE task_id=? AND attempt_count=? AND kind='WAIT_STOP' AND state='OPEN'",
+      "count": 1403,
+      "total_seconds": 0.13224829999671783,
+      "max_ms": 3.2492999998794403
+    },
+    {
+      "sql": "SELECT * FROM tasks WHERE status IN ('RUNNING','FAILED') ORDER BY sequence",
+      "count": 688,
+      "total_seconds": 0.12514130000818113,
+      "max_ms": 3.5301999996590894
+    },
+    {
+      "sql": "SAVEPOINT recover_workflow",
+      "count": 5477,
+      "total_seconds": 0.10395350000362669,
+      "max_ms": 1.3498999996954808
+    },
+    {
+      "sql": "SELECT id FROM recovery_incidents WHERE state='OPEN' ORDER BY rowid",
+      "count": 688,
+      "total_seconds": 0.047693999973489554,
+      "max_ms": 0.8885999995982274
+    },
+    {
+      "sql": "INSERT INTO worker_session_events(session_id,state,timestamp,reason) VALUES (?,?,?,?)",
+      "count": 12,
+      "total_seconds": 0.000544899996384629,
+      "max_ms": 0.1534000002720859
+    },
+    {
+      "sql": "INSERT INTO worker_sessions (session_id,worker_id,state,last_heartbeat_at,heartbeat_timeout,stopped_evidence,host_id) VALUES (?,?,'ACTIVE',?,?,NULL,?)",
+      "count": 4,
+      "total_seconds": 0.0003463000030023977,
+      "max_ms": 0.1531000016257167
+    },
+    {
+      "sql": "SELECT status FROM worker_registry WHERE worker_id=?",
+      "count": 4,
+      "total_seconds": 0.00026649999927030876,
+      "max_ms": 0.1201999984914437
+    },
+    {
+      "sql": "INSERT INTO worker_registry (worker_id, session_id, status, registered_at, last_heartbeat_at, stopped_at) VALUES (?, ?, 'ACTIVE', ?, ?, NULL)",
+      "count": 4,
+      "total_seconds": 0.00024009999833651818,
+      "max_ms": 0.08849999903759453
+    },
+    {
+      "sql": "UPDATE worker_sessions SET state='STOPPED', stopped_evidence=? WHERE session_id=?",
+      "count": 4,
+      "total_seconds": 0.00019380000048840884,
+      "max_ms": 0.06170000051497482
+    },
+    {
+      "sql": "UPDATE worker_sessions SET state='STOPPING', stop_requested=1 WHERE session_id=?",
+      "count": 4,
+      "total_seconds": 0.00013900000158173498,
+      "max_ms": 0.0366000003850786
+    },
+    {
+      "sql": "UPDATE worker_registry SET status='STOPPED', stopped_at=? WHERE worker_id=? AND session_id=?",
+      "count": 4,
+      "total_seconds": 0.00010280000424245372,
+      "max_ms": 0.035200000638724305
+    },
+    {
+      "sql": "CREATE INDEX IF NOT EXISTS management_task_status ON tasks(status, sequence)",
+      "count": 1,
+      "total_seconds": 5.649999911838677e-05,
+      "max_ms": 0.05649999911838677
+    },
+    {
+      "sql": "CREATE INDEX IF NOT EXISTS management_workflow_status ON workflow_runs(status)",
+      "count": 1,
+      "total_seconds": 4.119999903196003e-05,
+      "max_ms": 0.04119999903196003
+    },
+    {
+      "sql": "ROLLBACK",
+      "count": 1,
+      "total_seconds": 2.5999999706982635e-05,
+      "max_ms": 0.025999999706982635
+    }
+  ]
+}

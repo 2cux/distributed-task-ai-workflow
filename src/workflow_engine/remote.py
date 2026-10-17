@@ -10,6 +10,7 @@ The service and its workers are a trusted deployment, not a tenant boundary.
 from __future__ import annotations
 
 from dataclasses import asdict
+from contextlib import nullcontext
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
@@ -376,6 +377,11 @@ class RemoteTaskStore(SQLiteTaskStore):
 
     def _connection(self):
         raise PersistenceError('remote workers cannot access the central SQLite database')
+
+    def connection_scope(self):
+        # ReliableWorker also drives this RPC adapter, which owns no SQLite
+        # connection or thread-local SQLite settings on the remote host.
+        return nullcontext()
 
     def _decode_payload(self, payload):
         if payload is None:

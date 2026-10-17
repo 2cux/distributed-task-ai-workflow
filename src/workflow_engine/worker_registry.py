@@ -6,7 +6,7 @@ proves that a callable stopped and therefore never authorizes task replay.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 import math
 from pathlib import Path
@@ -68,13 +68,17 @@ class WorkerRegistry:
     live task or changes its owner.
     """
 
-    def __init__(self, database_path: str | Path, *, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, database_path: str | Path, *, clock: Callable[[], float] = time.time,
+                 writer_slot=None) -> None:
         if str(database_path) == ":memory:":
             raise ValueError("WorkerRegistry 需要磁盘数据库路径")
         if not callable(clock):
             raise TypeError("clock 必须可调用")
+        if writer_slot is not None and not callable(writer_slot):
+            raise TypeError('writer_slot must be callable or None')
         self.database_path = str(Path(database_path).resolve())
         self._clock = clock
+        self._writer_slot = writer_slot if writer_slot is not None else nullcontext
         with self._connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("""CREATE TABLE IF NOT EXISTS worker_registry (
@@ -123,14 +127,17 @@ class WorkerRegistry:
 
     @contextmanager
     def _transaction(self):
-        with self._connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            try:
-                yield db
-                db.execute("COMMIT")
-            except BaseException:
-                db.execute("ROLLBACK")
-                raise
+        # Engine-owned registries share the task writer FIFO. Standalone
+        # registries and other processes still synchronize through SQLite.
+        with self._writer_slot():
+            with self._connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                try:
+                    yield db
+                    db.execute("COMMIT")
+                except BaseException:
+                    db.execute("ROLLBACK")
+                    raise
 
     def _now(self) -> float:
         value = self._clock()

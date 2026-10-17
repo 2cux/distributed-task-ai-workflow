@@ -1,5 +1,8 @@
 # AI 工作流持续负载与质量回归
 
+已完成的瓶颈定位、数据库优化及原配置复测见
+[2026-10-17 性能优化记录](ai-workflow-optimization-2026-10-17.md)。
+
 `tools/benchmark_ai_workflow.py` 扩展原有 management benchmark 的覆盖范围。
 原有工具及 schema v2 保持兼容，继续用于有限批次的控制面抽样；新工具使用独立
 schema v1，覆盖真实产品处理器的持续执行链：

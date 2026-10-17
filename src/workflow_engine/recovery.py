@@ -265,11 +265,11 @@ class RecoverySystem:
                     recovered.append(row['id'])
                 if error:
                     errors.append(f"{row['id']}: {error}")
-            ids = [row['id'] for row in db.execute("SELECT id FROM workflow_runs WHERE status!='SUCCESS' ORDER BY rowid")]
+            ids = self.store.workflows.unfinished_ids(db)
             for key in ids:
                 db.execute('SAVEPOINT recover_workflow')
                 try:
-                    self.store.workflows._advance(db, key)
+                    self.store.workflows._advance(db, key, snapshot=False)
                     db.execute('RELEASE recover_workflow')
                     workflows.append(key)
                 except Exception as error:

@@ -130,23 +130,65 @@ class SQLiteTaskStore:
                                             "error": json.loads(row["error"]) if row["error"] is not None else None,
                                             "last_error": json.loads(row["last_error"]) if row["last_error"] is not None else None})
         from .worker_registry import WorkerRegistry
-        self.workers = WorkerRegistry(self.path)
+        self.workers = WorkerRegistry(self.path, writer_slot=lambda: self._writer_slot())
         from .workflow_store import SQLiteWorkflowStore
         self.workflows = SQLiteWorkflowStore(self)
         from .recovery import RecoveryJournal
         RecoveryJournal(self)
 
     @contextmanager
+    def connection_scope(self):
+        """Reuse a connection only within one explicitly bounded consumer thread.
+
+        Each lease still ends its read transaction. Nested leases use independent
+        connections, and scope exit closes the cached handle even on failure.
+        Ordinary callers retain the existing open/use/close behavior.
+        """
+        if getattr(self._connection_settings, 'scope', None) is not None:
+            yield
+            return
+        scope = dict(db=None, leased=False)
+        self._connection_settings.scope = scope
+        try:
+            yield
+        finally:
+            del self._connection_settings.scope
+            if scope['db'] is not None:
+                scope['db'].close()
+
+    @contextmanager
     def _connection(self):
-        db = sqlite3.connect(self.path, timeout=getattr(self._connection_settings, 'timeout', 30),
-                             isolation_level=None)
-        db.row_factory = sqlite3.Row
+        scope = getattr(self._connection_settings, 'scope', None)
+        reusable = scope is not None and not scope['leased']
+        db = scope['db'] if reusable else None
+        timeout = getattr(self._connection_settings, 'timeout', 30)
+        if db is None:
+            db = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
+            db.row_factory = sqlite3.Row
+        if reusable:
+            scope.update(db=db, leased=True)
         try:
             db.execute("PRAGMA foreign_keys=ON")
             db.execute("PRAGMA synchronous=FULL")
+            if reusable:
+                # Read models may set a shorter busy timeout on a prior lease.
+                db.execute(f'PRAGMA busy_timeout={int(timeout * 1000)}')
             yield db
         finally:
-            db.close()
+            if reusable:
+                try:
+                    # Existing read APIs use BEGIN and rely on close to release
+                    # their snapshot. Reuse must provide exactly that boundary.
+                    if db.in_transaction:
+                        db.rollback()
+                except BaseException:
+                    scope['db'] = None
+                    db.close()
+                    raise
+                finally:
+                    scope['leased'] = False
+            else:
+                db.close()
 
     @contextmanager
     def connection_timeout(self, seconds):

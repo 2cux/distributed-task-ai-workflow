@@ -496,6 +496,10 @@ class ManagementService:
         raise APIError(405, 'method_not_allowed', 'operation is unsupported for this endpoint')
 
     def _coordinate(self):
+        with self.store.connection_scope():
+            self._coordinate_loop()
+
+    def _coordinate_loop(self):
         while not self._stop.is_set():
             try:
                 report = self.recovery.tick()

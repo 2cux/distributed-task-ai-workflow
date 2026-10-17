@@ -161,25 +161,8 @@ class ReliableWorker:
 
     def _run(self) -> None:
         try:
-            while not self._stop.is_set():
-                owner = uuid4().hex
-                try:
-                    task = self.store.claim_next(self._session_id, owner)
-                except WorkerStopRequested:
-                    break
-                except WorkerNotReady:
-                    self._stop.wait(self.poll_interval)
-                    continue
-                if task is None:
-                    self._stop.wait(self.poll_interval)
-                    continue
-                try:
-                    self._executor.execute_claimed(task, owner)
-                except StaleExecutionError as error:
-                    self.last_error = error
-                    break
-                with self._lock:
-                    self.processed_count += 1
+            with self.store.connection_scope():
+                self._consume()
         except WorkerSessionMismatch as error:
             if not self._stop.is_set():
                 self.last_error = error
@@ -201,6 +184,27 @@ class ReliableWorker:
                 self.last_error = error  # Leave unresolved ownership durable.
             with self._lock:
                 self._status = WorkerStatus.STOPPED
+
+    def _consume(self) -> None:
+        while not self._stop.is_set():
+            owner = uuid4().hex
+            try:
+                task = self.store.claim_next(self._session_id, owner)
+            except WorkerStopRequested:
+                break
+            except WorkerNotReady:
+                self._stop.wait(self.poll_interval)
+                continue
+            if task is None:
+                self._stop.wait(self.poll_interval)
+                continue
+            try:
+                self._executor.execute_claimed(task, owner)
+            except StaleExecutionError as error:
+                self.last_error = error
+                break
+            with self._lock:
+                self.processed_count += 1
 
     def stop(self) -> None:
         with self._lock:
