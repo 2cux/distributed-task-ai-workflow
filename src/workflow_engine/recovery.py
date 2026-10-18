@@ -266,7 +266,10 @@ class RecoverySystem:
                 if error:
                     errors.append(f"{row['id']}: {error}")
             ids = self.store.workflows.unfinished_ids(db)
-            for key in ids:
+        # Reconcile one workflow per transaction. A large ready frontier must
+        # yield the writer FIFO between graphs to submissions and task outcomes.
+        for key in ids:
+            with self.store._transaction() as db:
                 db.execute('SAVEPOINT recover_workflow')
                 try:
                     self.store.workflows._advance(db, key, snapshot=False)
@@ -277,6 +280,7 @@ class RecoverySystem:
                     db.execute('RELEASE recover_workflow')
                     errors.append(f'{key}: workflow reconciliation: {error}')
                     self._event(db, 'WORKFLOW_RECOVERY_FAILED', key, error=str(error))
+        with self.store._connection() as db:
             incidents = tuple(row['id'] for row in db.execute("SELECT id FROM recovery_incidents WHERE state='OPEN' ORDER BY rowid"))
         report = RecoveryReport(tuple(dict.fromkeys(recovered)), tuple(workflows), incidents, tuple(dict.fromkeys(errors)))
         with self._lock:

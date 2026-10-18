@@ -1,0 +1,331 @@
+{
+  "schema_version": 2,
+  "workload": "management-http-two-node-dag",
+  "timestamp": "2026-10-18T04:08:16.177241+00:00",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "sqlite": "3.49.1",
+  "passed": true,
+  "configuration": {
+    "workflows": 50,
+    "reads": 150,
+    "concurrency": 8,
+    "workers": 4,
+    "deadline": 20.0,
+    "coordinator_poll_seconds": 0.1,
+    "worker_poll_seconds": 0.05,
+    "worker_heartbeat_seconds": 1,
+    "repeat": 3,
+    "warmup": 1
+  },
+  "warmup_runs": [
+    {
+      "timestamp": "2026-10-18T04:07:59.364174+00:00",
+      "python": "3.12.10",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "sqlite": "3.49.1",
+      "schema_version": 2,
+      "workload": "management-http-two-node-dag",
+      "passed": true,
+      "checks": {
+        "http_requests": true,
+        "completion_before_deadline": true,
+        "workflow_count": true,
+        "task_count": true,
+        "single_attempts": true,
+        "task_results": true,
+        "database_integrity": true,
+        "clean_shutdown": true
+      },
+      "failure_reasons": [],
+      "lifecycle_errors": [],
+      "verification": {
+        "expected_tasks": 100,
+        "observed_tasks": 100,
+        "node_set_matches": true,
+        "invalid_results": 0,
+        "invalid_attempts": 0,
+        "passed": true
+      },
+      "configuration": {
+        "workflows": 50,
+        "reads": 150,
+        "concurrency": 8,
+        "workers": 4,
+        "deadline": 20.0,
+        "coordinator_poll_seconds": 0.1,
+        "worker_poll_seconds": 0.05,
+        "worker_heartbeat_seconds": 1
+      },
+      "http": {
+        "requests": 200,
+        "errors": 0,
+        "error_types": [],
+        "elapsed_seconds": 4.223,
+        "requests_per_second": 47.36,
+        "latency_ms": {
+          "p50": 153.313,
+          "p95": 242.321,
+          "p99": 312.333,
+          "maximum": 915.587
+        }
+      },
+      "execution": {
+        "completed_workflows": 50,
+        "attempts": 100,
+        "retries": 0,
+        "total_elapsed_seconds": 4.684,
+        "workflows_per_second": 10.68
+      },
+      "integrity": "ok"
+    }
+  ],
+  "runs": [
+    {
+      "timestamp": "2026-10-18T04:08:04.386235+00:00",
+      "python": "3.12.10",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "sqlite": "3.49.1",
+      "schema_version": 2,
+      "workload": "management-http-two-node-dag",
+      "passed": true,
+      "checks": {
+        "http_requests": true,
+        "completion_before_deadline": true,
+        "workflow_count": true,
+        "task_count": true,
+        "single_attempts": true,
+        "task_results": true,
+        "database_integrity": true,
+        "clean_shutdown": true
+      },
+      "failure_reasons": [],
+      "lifecycle_errors": [],
+      "verification": {
+        "expected_tasks": 100,
+        "observed_tasks": 100,
+        "node_set_matches": true,
+        "invalid_results": 0,
+        "invalid_attempts": 0,
+        "passed": true
+      },
+      "configuration": {
+        "workflows": 50,
+        "reads": 150,
+        "concurrency": 8,
+        "workers": 4,
+        "deadline": 20.0,
+        "coordinator_poll_seconds": 0.1,
+        "worker_poll_seconds": 0.05,
+        "worker_heartbeat_seconds": 1
+      },
+      "http": {
+        "requests": 200,
+        "errors": 0,
+        "error_types": [],
+        "elapsed_seconds": 4.386,
+        "requests_per_second": 45.6,
+        "latency_ms": {
+          "p50": 159.835,
+          "p95": 250.407,
+          "p99": 379.346,
+          "maximum": 843.905
+        }
+      },
+      "execution": {
+        "completed_workflows": 50,
+        "attempts": 100,
+        "retries": 0,
+        "total_elapsed_seconds": 4.801,
+        "workflows_per_second": 10.41
+      },
+      "integrity": "ok"
+    },
+    {
+      "timestamp": "2026-10-18T04:08:11.352467+00:00",
+      "python": "3.12.10",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "sqlite": "3.49.1",
+      "schema_version": 2,
+      "workload": "management-http-two-node-dag",
+      "passed": true,
+      "checks": {
+        "http_requests": true,
+        "completion_before_deadline": true,
+        "workflow_count": true,
+        "task_count": true,
+        "single_attempts": true,
+        "task_results": true,
+        "database_integrity": true,
+        "clean_shutdown": true
+      },
+      "failure_reasons": [],
+      "lifecycle_errors": [],
+      "verification": {
+        "expected_tasks": 100,
+        "observed_tasks": 100,
+        "node_set_matches": true,
+        "invalid_results": 0,
+        "invalid_attempts": 0,
+        "passed": true
+      },
+      "configuration": {
+        "workflows": 50,
+        "reads": 150,
+        "concurrency": 8,
+        "workers": 4,
+        "deadline": 20.0,
+        "coordinator_poll_seconds": 0.1,
+        "worker_poll_seconds": 0.05,
+        "worker_heartbeat_seconds": 1
+      },
+      "http": {
+        "requests": 200,
+        "errors": 0,
+        "error_types": [],
+        "elapsed_seconds": 6.46,
+        "requests_per_second": 30.96,
+        "latency_ms": {
+          "p50": 224.201,
+          "p95": 501.62,
+          "p99": 671.548,
+          "maximum": 2029.396
+        }
+      },
+      "execution": {
+        "completed_workflows": 50,
+        "attempts": 100,
+        "retries": 0,
+        "total_elapsed_seconds": 6.878,
+        "workflows_per_second": 7.27
+      },
+      "integrity": "ok"
+    },
+    {
+      "timestamp": "2026-10-18T04:08:16.177241+00:00",
+      "python": "3.12.10",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "sqlite": "3.49.1",
+      "schema_version": 2,
+      "workload": "management-http-two-node-dag",
+      "passed": true,
+      "checks": {
+        "http_requests": true,
+        "completion_before_deadline": true,
+        "workflow_count": true,
+        "task_count": true,
+        "single_attempts": true,
+        "task_results": true,
+        "database_integrity": true,
+        "clean_shutdown": true
+      },
+      "failure_reasons": [],
+      "lifecycle_errors": [],
+      "verification": {
+        "expected_tasks": 100,
+        "observed_tasks": 100,
+        "node_set_matches": true,
+        "invalid_results": 0,
+        "invalid_attempts": 0,
+        "passed": true
+      },
+      "configuration": {
+        "workflows": 50,
+        "reads": 150,
+        "concurrency": 8,
+        "workers": 4,
+        "deadline": 20.0,
+        "coordinator_poll_seconds": 0.1,
+        "worker_poll_seconds": 0.05,
+        "worker_heartbeat_seconds": 1
+      },
+      "http": {
+        "requests": 200,
+        "errors": 0,
+        "error_types": [],
+        "elapsed_seconds": 4.284,
+        "requests_per_second": 46.68,
+        "latency_ms": {
+          "p50": 145.885,
+          "p95": 264.212,
+          "p99": 350.017,
+          "maximum": 886.173
+        }
+      },
+      "execution": {
+        "completed_workflows": 50,
+        "attempts": 100,
+        "retries": 0,
+        "total_elapsed_seconds": 4.747,
+        "workflows_per_second": 10.53
+      },
+      "integrity": "ok"
+    }
+  ],
+  "summary": {
+    "measured_runs": 3,
+    "passed_runs": 3,
+    "aggregate": {
+      "requests": 600,
+      "errors": 0,
+      "completed_workflows": 150,
+      "attempts": 300,
+      "retries": 0,
+      "http_elapsed_seconds": 15.13,
+      "execution_elapsed_seconds": 16.426,
+      "requests_per_second": 39.66,
+      "workflows_per_second": 9.13
+    },
+    "round_statistics": {
+      "http_requests_per_second": {
+        "minimum": 30.96,
+        "median": 45.6,
+        "maximum": 46.68,
+        "mean": 41.08,
+        "sample_stdev": 8.781
+      },
+      "workflows_per_second": {
+        "minimum": 7.27,
+        "median": 10.41,
+        "maximum": 10.53,
+        "mean": 9.403,
+        "sample_stdev": 1.848
+      },
+      "execution_seconds": {
+        "minimum": 4.747,
+        "median": 4.801,
+        "maximum": 6.878,
+        "mean": 5.475,
+        "sample_stdev": 1.215
+      },
+      "http_p50_latency_ms": {
+        "minimum": 145.885,
+        "median": 159.835,
+        "maximum": 224.201,
+        "mean": 176.64,
+        "sample_stdev": 41.775
+      },
+      "http_p95_latency_ms": {
+        "minimum": 250.407,
+        "median": 264.212,
+        "maximum": 501.62,
+        "mean": 338.746,
+        "sample_stdev": 141.222
+      },
+      "http_p99_latency_ms": {
+        "minimum": 350.017,
+        "median": 379.346,
+        "maximum": 671.548,
+        "mean": 466.97,
+        "sample_stdev": 177.775
+      },
+      "http_maximum_latency_ms": {
+        "minimum": 843.905,
+        "median": 886.173,
+        "maximum": 2029.396,
+        "mean": 1253.158,
+        "sample_stdev": 672.574
+      }
+    }
+  }
+}

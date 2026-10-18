@@ -1,11 +1,14 @@
 """Operation-count regressions for database work on the coordinator's write path."""
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
+from threading import Event
+import time
 import unittest
 from unittest.mock import patch
 
-from workflow_engine import DAGNode, DAGWorkflow, TaskEngine
+from workflow_engine import DAGNode, DAGWorkflow, Task, TaskEngine
 
 
 class WorkflowHotPathTests(unittest.TestCase):
@@ -71,6 +74,64 @@ class WorkflowHotPathTests(unittest.TestCase):
             self.assertEqual(reopened._store.workflows.unfinished_ids(db), ['z-first', 'a-second', 'm-third'])
             self.assertEqual(db.execute("SELECT COUNT(*) FROM workflow_runs").fetchone()[0], 4)
             self.assertIsNotNone(db.execute("SELECT 1 FROM sqlite_master WHERE name='workflow_unfinished'").fetchone())
+
+    def test_waiting_submission_commits_between_workflow_reconciliations(self):
+        self.flow('first')
+        self.flow('second')
+        entered, release = Event(), Event()
+        observed = []
+        original = self.engine._store.workflows._advance
+
+        def advance(db, key, **options):
+            result = original(db, key, **options)
+            if key == 'first':
+                entered.set()
+                if not release.wait(5):
+                    raise TimeoutError('workflow reconciliation gate')
+            elif key == 'second':
+                observed.append(db.execute("SELECT 1 FROM tasks WHERE id='waiting-submission'").fetchone() is not None)
+            return result
+
+        with patch.object(self.engine._store.workflows, '_advance', advance), ThreadPoolExecutor(2) as pool:
+            coordinator = pool.submit(self.engine.create_recovery_system().tick)
+            try:
+                self.assertTrue(entered.wait(3))
+                submission = pool.submit(self.engine.submit, Task('new', abs, args=(-7,), id='waiting-submission'))
+                deadline = time.monotonic() + 3
+                while True:
+                    with self.engine._store._writer_condition:
+                        waiting = len(self.engine._store._writer_waiters) >= 2
+                    if waiting:
+                        break
+                    self.assertLess(time.monotonic(), deadline, 'submission did not reach writer queue')
+                    time.sleep(.001)
+            finally:
+                release.set()
+            report = coordinator.result(timeout=5)
+            submission.result(timeout=5)
+        self.assertEqual(report.errors, ())
+        self.assertEqual(report.workflow_ids, ('first', 'second'))
+        self.assertEqual(observed, [True])
+
+    def test_workflow_error_rolls_back_only_its_changes_and_next_tick_can_retry(self):
+        failed = self.flow('broken')
+        self.flow('healthy')
+        original = self.engine._store.workflows._advance
+
+        def advance(db, key, **options):
+            if key == 'broken':
+                db.execute("UPDATE tasks SET status='FAILED' WHERE id=?", (failed.nodes['root'].task_id,))
+                raise RuntimeError('injected reconciliation failure')
+            return original(db, key, **options)
+
+        recovery = self.engine.create_recovery_system()
+        with patch.object(self.engine._store.workflows, '_advance', advance):
+            report = recovery.tick()
+        self.assertEqual(report.workflow_ids, ('healthy',))
+        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(self.engine.get_task(failed.nodes['root'].task_id).status, 'PENDING')
+        self.assertEqual(recovery.get_events()[-1]['action'], 'WORKFLOW_RECOVERY_FAILED')
+        self.assertEqual(recovery.tick().errors, ())
 
 
 if __name__ == '__main__':

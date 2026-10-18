@@ -1,0 +1,284 @@
+{
+  "started_at": "2026-10-18T04:07:34.345856+00:00",
+  "control_commit": "79b2dfd3e043e946be2881c85a09dd0658b5e289",
+  "candidate_diff_sha256": "fb8f8e98d301796ab687c2a5e0e25ce7e2567e865204608701baee8ab6466163",
+  "rounds": [
+    {
+      "source": "control",
+      "concurrency": 8,
+      "exit_code": 0,
+      "passed": true,
+      "aggregate": {
+        "requests": 600,
+        "errors": 0,
+        "completed_workflows": 150,
+        "attempts": 300,
+        "retries": 0,
+        "http_elapsed_seconds": 13.507,
+        "execution_elapsed_seconds": 14.388,
+        "requests_per_second": 44.42,
+        "workflows_per_second": 10.43
+      },
+      "latency": {
+        "http_requests_per_second": {
+          "minimum": 41.69,
+          "median": 43.88,
+          "maximum": 48.18,
+          "mean": 44.583,
+          "sample_stdev": 3.302
+        },
+        "workflows_per_second": {
+          "minimum": 9.92,
+          "median": 10.36,
+          "maximum": 11.06,
+          "mean": 10.447,
+          "sample_stdev": 0.575
+        },
+        "execution_seconds": {
+          "minimum": 4.52,
+          "median": 4.825,
+          "maximum": 5.043,
+          "mean": 4.796,
+          "sample_stdev": 0.263
+        },
+        "http_p50_latency_ms": {
+          "minimum": 109.427,
+          "median": 138.187,
+          "maximum": 138.94,
+          "mean": 128.851,
+          "sample_stdev": 16.826
+        },
+        "http_p95_latency_ms": {
+          "minimum": 324.596,
+          "median": 359.203,
+          "maximum": 384.341,
+          "mean": 356.047,
+          "sample_stdev": 29.997
+        },
+        "http_p99_latency_ms": {
+          "minimum": 857.471,
+          "median": 1015.796,
+          "maximum": 1165.593,
+          "mean": 1012.953,
+          "sample_stdev": 154.081
+        },
+        "http_maximum_latency_ms": {
+          "minimum": 1451.899,
+          "median": 1550.918,
+          "maximum": 2449.829,
+          "mean": 1817.549,
+          "sample_stdev": 549.805
+        }
+      },
+      "output": "D:\\project\\distributed-task-ai-workflow\\.artifacts\\capacity-isolated-control-8.json"
+    },
+    {
+      "source": "candidate",
+      "concurrency": 8,
+      "exit_code": 0,
+      "passed": true,
+      "aggregate": {
+        "requests": 600,
+        "errors": 0,
+        "completed_workflows": 150,
+        "attempts": 300,
+        "retries": 0,
+        "http_elapsed_seconds": 15.13,
+        "execution_elapsed_seconds": 16.426,
+        "requests_per_second": 39.66,
+        "workflows_per_second": 9.13
+      },
+      "latency": {
+        "http_requests_per_second": {
+          "minimum": 30.96,
+          "median": 45.6,
+          "maximum": 46.68,
+          "mean": 41.08,
+          "sample_stdev": 8.781
+        },
+        "workflows_per_second": {
+          "minimum": 7.27,
+          "median": 10.41,
+          "maximum": 10.53,
+          "mean": 9.403,
+          "sample_stdev": 1.848
+        },
+        "execution_seconds": {
+          "minimum": 4.747,
+          "median": 4.801,
+          "maximum": 6.878,
+          "mean": 5.475,
+          "sample_stdev": 1.215
+        },
+        "http_p50_latency_ms": {
+          "minimum": 145.885,
+          "median": 159.835,
+          "maximum": 224.201,
+          "mean": 176.64,
+          "sample_stdev": 41.775
+        },
+        "http_p95_latency_ms": {
+          "minimum": 250.407,
+          "median": 264.212,
+          "maximum": 501.62,
+          "mean": 338.746,
+          "sample_stdev": 141.222
+        },
+        "http_p99_latency_ms": {
+          "minimum": 350.017,
+          "median": 379.346,
+          "maximum": 671.548,
+          "mean": 466.97,
+          "sample_stdev": 177.775
+        },
+        "http_maximum_latency_ms": {
+          "minimum": 843.905,
+          "median": 886.173,
+          "maximum": 2029.396,
+          "mean": 1253.158,
+          "sample_stdev": 672.574
+        }
+      },
+      "output": "D:\\project\\distributed-task-ai-workflow\\.artifacts\\capacity-isolated-candidate-8.json"
+    },
+    {
+      "source": "control",
+      "concurrency": 16,
+      "exit_code": 1,
+      "passed": false,
+      "aggregate": {
+        "requests": 600,
+        "errors": 21,
+        "completed_workflows": 129,
+        "attempts": 258,
+        "retries": 0,
+        "http_elapsed_seconds": 13.889,
+        "execution_elapsed_seconds": 60.03,
+        "requests_per_second": 43.2,
+        "workflows_per_second": 2.15
+      },
+      "latency": {
+        "http_requests_per_second": {
+          "minimum": 37.76,
+          "median": 45.65,
+          "maximum": 47.49,
+          "mean": 43.633,
+          "sample_stdev": 5.169
+        },
+        "workflows_per_second": {
+          "minimum": 2.15,
+          "median": 2.15,
+          "maximum": 2.15,
+          "mean": 2.15,
+          "sample_stdev": 0.0
+        },
+        "execution_seconds": {
+          "minimum": 20.003,
+          "median": 20.013,
+          "maximum": 20.014,
+          "mean": 20.01,
+          "sample_stdev": 0.006
+        },
+        "http_p50_latency_ms": {
+          "minimum": 156.245,
+          "median": 158.008,
+          "maximum": 179.7,
+          "mean": 164.651,
+          "sample_stdev": 13.063
+        },
+        "http_p95_latency_ms": {
+          "minimum": 1189.115,
+          "median": 1270.861,
+          "maximum": 1277.237,
+          "mean": 1245.738,
+          "sample_stdev": 49.14
+        },
+        "http_p99_latency_ms": {
+          "minimum": 2063.967,
+          "median": 2070.329,
+          "maximum": 2088.371,
+          "mean": 2074.222,
+          "sample_stdev": 12.659
+        },
+        "http_maximum_latency_ms": {
+          "minimum": 2269.073,
+          "median": 2427.07,
+          "maximum": 2457.302,
+          "mean": 2384.482,
+          "sample_stdev": 101.083
+        }
+      },
+      "output": "D:\\project\\distributed-task-ai-workflow\\.artifacts\\capacity-isolated-control-16.json"
+    },
+    {
+      "source": "candidate",
+      "concurrency": 16,
+      "exit_code": 0,
+      "passed": true,
+      "aggregate": {
+        "requests": 600,
+        "errors": 0,
+        "completed_workflows": 150,
+        "attempts": 300,
+        "retries": 0,
+        "http_elapsed_seconds": 13.285,
+        "execution_elapsed_seconds": 14.479,
+        "requests_per_second": 45.16,
+        "workflows_per_second": 10.36
+      },
+      "latency": {
+        "http_requests_per_second": {
+          "minimum": 44.97,
+          "median": 45.22,
+          "maximum": 45.31,
+          "mean": 45.167,
+          "sample_stdev": 0.176
+        },
+        "workflows_per_second": {
+          "minimum": 10.35,
+          "median": 10.36,
+          "maximum": 10.38,
+          "mean": 10.363,
+          "sample_stdev": 0.015
+        },
+        "execution_seconds": {
+          "minimum": 4.819,
+          "median": 4.828,
+          "maximum": 4.832,
+          "mean": 4.826,
+          "sample_stdev": 0.007
+        },
+        "http_p50_latency_ms": {
+          "minimum": 320.207,
+          "median": 330.178,
+          "maximum": 347.797,
+          "mean": 332.727,
+          "sample_stdev": 13.971
+        },
+        "http_p95_latency_ms": {
+          "minimum": 418.471,
+          "median": 438.481,
+          "maximum": 498.291,
+          "mean": 451.748,
+          "sample_stdev": 41.531
+        },
+        "http_p99_latency_ms": {
+          "minimum": 468.838,
+          "median": 526.31,
+          "maximum": 592.776,
+          "mean": 529.308,
+          "sample_stdev": 62.023
+        },
+        "http_maximum_latency_ms": {
+          "minimum": 965.313,
+          "median": 1071.565,
+          "maximum": 1271.85,
+          "mean": 1102.909,
+          "sample_stdev": 155.654
+        }
+      },
+      "output": "D:\\project\\distributed-task-ai-workflow\\.artifacts\\capacity-isolated-candidate-16.json"
+    }
+  ],
+  "complete": true
+}

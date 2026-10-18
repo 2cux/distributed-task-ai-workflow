@@ -44,6 +44,74 @@ class _WriteContentionError(sqlite3.OperationalError):
     sqlite_errorcode = sqlite3.SQLITE_BUSY
 
 
+class _ConnectionPool:
+    """Bounded exclusive leases, with FIFO admission and no retained snapshots."""
+
+    def __init__(self, factory, capacity):
+        self._factory, self._capacity = factory, capacity
+        self._idle = []
+        self._lock = threading.Condition()
+        self._waiters = deque()
+        self._active = 0
+        self._closed = False
+
+    def acquire(self, timeout):
+        ticket = object()
+        with self._lock:
+            self._waiters.append(ticket)
+            try:
+                if not self._lock.wait_for(
+                        lambda: self._waiters[0] is ticket and self._active < self._capacity,
+                        timeout=timeout):
+                    raise _WriteContentionError('database connection capacity is busy')
+            except BaseException:
+                self._waiters.remove(ticket)
+                self._lock.notify_all()
+                raise
+            self._waiters.popleft()
+            self._active += 1
+            db = self._idle.pop() if self._idle else None
+            self._lock.notify_all()
+        try:
+            return self._factory() if db is None else db
+        except BaseException:
+            with self._lock:
+                self._active -= 1
+                self._lock.notify_all()
+            raise
+
+    def discard(self, db):
+        try:
+            db.close()
+        finally:
+            with self._lock:
+                self._active -= 1
+                self._lock.notify_all()
+
+    def release(self, db):
+        try:
+            if db.in_transaction:
+                db.rollback()
+        except BaseException:
+            self.discard(db)
+            raise
+        with self._lock:
+            self._active -= 1
+            if not self._closed and len(self._idle) < self._capacity:
+                self._idle.append(db)
+                self._lock.notify_all()
+                return
+            self._lock.notify_all()
+        db.close()
+
+    def close(self):
+        with self._lock:
+            self._closed = True
+            idle, self._idle = self._idle, []
+        for db in idle:
+            db.close()
+
+
 def _json(value: Any) -> str:
     # Reject silently lossy conversions (e.g. integer dictionary keys, tuples).
     def validate(item: Any) -> None:
@@ -137,24 +205,38 @@ class SQLiteTaskStore:
         RecoveryJournal(self)
 
     @contextmanager
-    def connection_scope(self):
-        """Reuse a connection only within one explicitly bounded consumer thread.
+    def connection_scope(self, *, pool=None):
+        """Own one connection exclusively for an explicitly bounded scope.
 
         Each lease still ends its read transaction. Nested leases use independent
-        connections, and scope exit closes the cached handle even on failure.
+        connections. Scope exit closes the handle or returns it to an optional
+        service-owned pool; no handle is lent to overlapping request scopes.
         Ordinary callers retain the existing open/use/close behavior.
         """
         if getattr(self._connection_settings, 'scope', None) is not None:
             yield
             return
-        scope = dict(db=None, leased=False)
+        scope = dict(db=None, leased=False, pool=pool)
         self._connection_settings.scope = scope
         try:
             yield
         finally:
             del self._connection_settings.scope
             if scope['db'] is not None:
-                scope['db'].close()
+                if pool is None:
+                    scope['db'].close()
+                else:
+                    pool.release(scope['db'])
+
+    def _open_connection(self, *, shared=False):
+        db = sqlite3.connect(self.path,
+            timeout=getattr(self._connection_settings, 'timeout', 30),
+            isolation_level=None, check_same_thread=not shared)
+        db.row_factory = sqlite3.Row
+        return db
+
+    def _connection_pool(self, capacity):
+        return _ConnectionPool(lambda: self._open_connection(shared=True), capacity)
 
     @contextmanager
     def _connection(self):
@@ -163,8 +245,8 @@ class SQLiteTaskStore:
         db = scope['db'] if reusable else None
         timeout = getattr(self._connection_settings, 'timeout', 30)
         if db is None:
-            db = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
-            db.row_factory = sqlite3.Row
+            pool = scope['pool'] if reusable else None
+            db = self._open_connection() if pool is None else pool.acquire(timeout)
         if reusable:
             scope.update(db=db, leased=True)
         try:
@@ -183,7 +265,10 @@ class SQLiteTaskStore:
                         db.rollback()
                 except BaseException:
                     scope['db'] = None
-                    db.close()
+                    if scope['pool'] is None:
+                        db.close()
+                    else:
+                        scope['pool'].discard(db)
                     raise
                 finally:
                     scope['leased'] = False
@@ -227,8 +312,10 @@ class SQLiteTaskStore:
 
     @contextmanager
     def _transaction(self):
-        with self._writer_slot():
-            with self._connection() as db:
+        # Connection setup/close can perform filesystem work. Keep it outside
+        # the local writer FIFO so other writers can progress during that work.
+        with self._connection() as db:
+            with self._writer_slot():
                 db.execute("BEGIN IMMEDIATE")
                 try:
                     yield db

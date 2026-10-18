@@ -184,7 +184,7 @@ class ManagementService:
     def __init__(self, engine: TaskEngine, token: str, *, readonly_token=None,
                  host='127.0.0.1', port=0, ssl_context=None, allow_insecure=False,
                  request_timeout=2, max_request_bytes=1024 * 1024,
-                 max_response_bytes=4 * 1024 * 1024, max_concurrency=32,
+                 max_response_bytes=4 * 1024 * 1024, max_concurrency=32, database_concurrency=4,
                  poll_interval=.1, coordinator_stale_after=10, recovery=None):
         if not isinstance(engine, TaskEngine) or not engine.persistent:
             raise ValueError('management service requires a persistent TaskEngine')
@@ -203,6 +203,8 @@ class ManagementService:
                 raise ValueError(name + ' must be an integer >= 1024')
         if type(max_concurrency) is not int or not 1 <= max_concurrency <= 256:
             raise ValueError('max_concurrency must be in 1..256')
+        if type(database_concurrency) is not int or not 1 <= database_concurrency <= 256:
+            raise ValueError('database_concurrency must be in 1..256')
         if type(port) is not int or not 0 <= port <= 65535:
             raise ValueError('port must be in 0..65535')
         if type(allow_insecure) is not bool:
@@ -223,12 +225,16 @@ class ManagementService:
         self.request_timeout = request_timeout
         self.max_request_bytes, self.max_response_bytes = max_request_bytes, max_response_bytes
         self.max_concurrency, self.poll_interval = max_concurrency, poll_interval
+        self.database_concurrency = min(database_concurrency, max_concurrency)
         self.coordinator_stale_after = coordinator_stale_after
         self._stop, self._lock = Event(), RLock()
         self._thread = self._coordinator = None
         self._coordinator_ok = False
         self._last_tick_clock = 0.0
         self._closed = False
+        # HTTP capacity and SQLite admission are separate. Excess concurrent
+        # short DB operations add contention without increasing writer capacity.
+        self._connections = self.store._connection_pool(self.database_concurrency)
         service = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -284,7 +290,10 @@ class ManagementService:
                     if any(len(values) != 1 for values in query.values()):
                         raise APIError(400, 'invalid_query', 'query fields cannot repeat')
                     body = self._body() if method == 'POST' else None
-                    with service.store.connection_timeout(service.request_timeout):
+                    with (
+                        service.store.connection_timeout(service.request_timeout),
+                        service.store.connection_scope(pool=service._connections),
+                    ):
                         status, payload, content_type = service.dispatch(method, parsed.path,
                             {key: values[0] for key, values in query.items()}, body)
                     raw = payload.encode('utf-8') if content_type.startswith('text/') else _json(payload).encode('utf-8')
@@ -539,6 +548,7 @@ class ManagementService:
         for thread in (self._thread, self._coordinator):
             if thread is not None:
                 thread.join(max(0, deadline - time.monotonic()))
+        self._connections.close()
         return drained and all(thread is None or not thread.is_alive() for thread in (self._thread, self._coordinator))
 
 

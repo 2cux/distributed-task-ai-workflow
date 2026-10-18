@@ -129,8 +129,8 @@ class WorkerRegistry:
     def _transaction(self):
         # Engine-owned registries share the task writer FIFO. Standalone
         # registries and other processes still synchronize through SQLite.
-        with self._writer_slot():
-            with self._connection() as db:
+        with self._connection() as db:
+            with self._writer_slot():
                 db.execute("BEGIN IMMEDIATE")
                 try:
                     yield db

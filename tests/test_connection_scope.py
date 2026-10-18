@@ -4,7 +4,7 @@ from contextlib import closing, contextmanager
 from pathlib import Path
 import sqlite3
 import tempfile
-from threading import Barrier
+from threading import Barrier, Event, get_ident
 import unittest
 from unittest.mock import patch
 
@@ -132,6 +132,142 @@ class ConnectionScopeTests(unittest.TestCase):
         # A timed out registry waiter must not poison the FIFO for later writes.
         self.engine.worker_registry.heartbeat('queued-heartbeat', record.session_id)
         self.assertEqual(self.engine.worker_registry.get_session(record.session_id).state, 'ACTIVE')
+
+    def test_slow_connection_setup_or_close_does_not_block_unrelated_writer(self):
+        for phase in ('setup', 'close'):
+            with self.subTest(phase=phase):
+                entered, release = Event(), Event()
+                target_thread = [None]
+                original = self.store._connection
+
+                @contextmanager
+                def slow_connection():
+                    targeted = get_ident() == target_thread[0]
+                    if targeted and phase == 'setup':
+                        entered.set()
+                        if not release.wait(5):
+                            raise TimeoutError('connection setup gate')
+                    with original() as db:
+                        yield db
+                    if targeted and phase == 'close':
+                        entered.set()
+                        if not release.wait(5):
+                            raise TimeoutError('connection close gate')
+
+                def slow_writer():
+                    target_thread[0] = get_ident()
+                    with self.store._transaction() as db:
+                        db.execute('SELECT 1')
+
+                def other_writer():
+                    with self.store._transaction() as db:
+                        return db.execute('SELECT 42').fetchone()[0]
+
+                with patch.object(self.store, '_connection', slow_connection), ThreadPoolExecutor(2) as pool:
+                    first = pool.submit(slow_writer)
+                    try:
+                        self.assertTrue(entered.wait(3))
+                        self.assertEqual(pool.submit(other_writer).result(timeout=2), 42)
+                    finally:
+                        release.set()
+                    first.result(timeout=3)
+
+    def test_pool_never_lends_one_handle_to_two_threads_and_bounds_idle_handles(self):
+        pool = self.store._connection_pool(2)
+        self.addCleanup(pool.close)
+        barrier = Barrier(2)
+
+        def borrow(_):
+            with self.store.connection_scope(pool=pool), self.store._connection() as db:
+                barrier.wait(3)
+                self.assertEqual(db.execute('SELECT 42').fetchone()[0], 42)
+                return db
+
+        with ThreadPoolExecutor(2) as workers:
+            handles = list(workers.map(borrow, range(2)))
+        self.assertIsNot(handles[0], handles[1])
+        self.assertEqual(len(pool._idle), 2)
+        pool.close()
+        for handle in handles:
+            with self.assertRaises(sqlite3.ProgrammingError):
+                handle.execute('SELECT 1')
+
+    def test_pool_releases_snapshot_rolls_back_errors_and_restores_settings(self):
+        pool = self.store._connection_pool(1)
+        self.addCleanup(pool.close)
+        self.engine.submit(Task('sample', abs, id='sample', args=(-1,)))
+        with self.assertRaisesRegex(RuntimeError, 'abort'):
+            with self.store.connection_timeout(.025), self.store.connection_scope(pool=pool):
+                with self.store._connection() as first:
+                    self.assertEqual(first.execute('PRAGMA busy_timeout').fetchone()[0], 25)
+                    first.execute('BEGIN IMMEDIATE')
+                    first.execute("UPDATE tasks SET status='FAILED'")
+                    raise RuntimeError('abort')
+        self.assertFalse(first.in_transaction)
+        self.assertEqual(self.engine.get_task('sample').status, 'PENDING')
+        with closing(sqlite3.connect(self.path, isolation_level=None)) as other:
+            other.execute("UPDATE tasks SET status='SUCCESS'")
+        with self.store.connection_timeout(.2), self.store.connection_scope(pool=pool):
+            with self.store._connection() as second:
+                self.assertIs(first, second)
+                self.assertEqual(second.execute('PRAGMA busy_timeout').fetchone()[0], 200)
+                self.assertEqual(second.execute('PRAGMA synchronous').fetchone()[0], 2)
+                self.assertEqual(second.execute('PRAGMA foreign_keys').fetchone()[0], 1)
+                self.assertEqual(second.execute('SELECT status FROM tasks').fetchone()[0], 'SUCCESS')
+
+    def test_pool_shutdown_drains_borrowers_and_closes_late_request_handles(self):
+        pool = self.store._connection_pool(1)
+        self.addCleanup(pool.close)
+        with self.store.connection_scope(pool=pool), self.store._connection() as active:
+            pool.close()
+            self.assertEqual(active.execute('SELECT 1').fetchone()[0], 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            active.execute('SELECT 1')
+        # An accepted handler may reach SQLite after a bounded shutdown returns.
+        with self.store.connection_scope(pool=pool), self.store._connection() as late:
+            self.assertEqual(late.execute('SELECT 1').fetchone()[0], 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            late.execute('SELECT 1')
+        self.assertEqual(pool._idle, [])
+
+    def test_invalid_pooled_handle_is_discarded_after_lease_failure(self):
+        pool = self.store._connection_pool(1)
+        self.addCleanup(pool.close)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            with self.store.connection_scope(pool=pool), self.store._connection() as broken:
+                broken.close()
+        with self.store.connection_scope(pool=pool), self.store._connection() as healthy:
+            self.assertIsNot(broken, healthy)
+            self.assertEqual(healthy.execute('SELECT 1').fetchone()[0], 1)
+
+    def test_pool_admission_timeout_does_not_poison_capacity_or_waiting_requests(self):
+        pool = self.store._connection_pool(1)
+        self.addCleanup(pool.close)
+
+        def borrower():
+            with self.store.connection_timeout(.025), self.store.connection_scope(pool=pool):
+                with self.store._connection() as db:
+                    return db.execute('SELECT 42').fetchone()[0]
+
+        with ThreadPoolExecutor(1) as workers:
+            with self.store.connection_scope(pool=pool), self.store._connection():
+                with self.assertRaises(sqlite3.OperationalError) as caught:
+                    workers.submit(borrower).result(timeout=2)
+                self.assertEqual(caught.exception.sqlite_errorcode, sqlite3.SQLITE_BUSY)
+            self.assertEqual(workers.submit(borrower).result(timeout=2), 42)
+        self.assertEqual(pool._active, 0)
+        self.assertEqual(len(pool._waiters), 0)
+
+    def test_pool_connection_creation_failure_releases_admission_slot(self):
+        pool = self.store._connection_pool(1)
+        self.addCleanup(pool.close)
+        with patch.object(self.store, '_open_connection', side_effect=OSError('open failed')):
+            with self.assertRaises(OSError):
+                with self.store.connection_scope(pool=pool), self.store._connection():
+                    self.fail('unreachable')
+        with self.store.connection_scope(pool=pool), self.store._connection() as db:
+            self.assertEqual(db.execute('SELECT 1').fetchone()[0], 1)
+        self.assertEqual(pool._active, 0)
 
 
 if __name__ == '__main__':

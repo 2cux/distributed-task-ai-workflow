@@ -1,0 +1,12 @@
+{
+  "capacity-ai-candidate-2026-10-18.json": "fddba64acbe96ffeda3a678b65840b38b6ed02f67958ba57d33d67c6cac7adcb",
+  "capacity-ai-control-2026-10-18.json": "5f7237596250cc2c741ce96ee8fbf0a90a9335ffecad26bcd1fb8cfd935fbd62",
+  "capacity-ai-profile.json": "a4caaaa9728fa5d9697fb1f552ca787bf024f493965311b3612e19221718e59e",
+  "capacity-cleanup.json": "a58293fac87e40a1cebfe4c62eff1c2372bcce72bb8d04aef9653276b8bd9646",
+  "capacity-full-regression-tests.xml": "7d2e08024e78cecb9001b6dcabaf9979a52b22543977bd81293b6a57ba3ecfcd",
+  "capacity-isolated-candidate-16.json": "1813f9c2f6a73a9f8c7d1c85dfbfbb9bbf5605f4a42914272e07524d9bb11983",
+  "capacity-isolated-candidate-8.json": "a28618a42de487dc8c075c4af033753900ce6d6ff7f4eaed425c2f0592e37340",
+  "capacity-isolated-comparison.json": "2aafa9080a2ea41435106063b720f8b980e7d4f8121b6a9a1a4ffa3b0e34815d",
+  "capacity-isolated-control-16.json": "8a517898189b41a85356a8e687bab76f1b7d3b2dc375e3840731ee7bf0d14e12",
+  "capacity-isolated-control-8.json": "dbabea4ca6e3d0013f5745e1b18f060d5c8ab98022e0f0f384f44ecd07af2289"
+}

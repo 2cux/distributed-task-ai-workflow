@@ -9,12 +9,40 @@ import sys
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing
+from contextlib import closing, contextmanager
+from threading import current_thread
 
 from management_test_support import ADMIN, READER, ManagementTestCase
 
 
 class ManagementStabilityTests(ManagementTestCase):
+    def test_request_connection_is_returned_on_success_and_conflict_and_closed_on_shutdown(self):
+        self.start_service()
+        opened = []
+        original = self.engine._store._connection
+
+        @contextmanager
+        def connection():
+            with original() as db:
+                if 'process_request_thread' in current_thread().name:
+                    opened.append(db)
+                yield db
+
+        for definition, expected in ((self.workflow('scope-one'), 202),
+                                     (self.workflow('scope-two'), 202),
+                                     (self.workflow('scope-one', -99), 409)):
+            with self.subTest(status=expected), patch.object(self.engine._store, '_connection', connection):
+                before = len(opened)
+                self.assertEqual(self.call('/api/v1/workflows', definition)[0], expected)
+                self.wait_for(lambda: self.service._server._active == 0)
+                self.assertGreater(len(opened), before)
+                self.assertEqual(len({id(db) for db in opened[before:]}), 1)
+                self.assertFalse(opened[-1].in_transaction)
+        self.assertEqual(len({id(db) for db in opened}), 1)
+        self.assertTrue(self.service.shutdown(5))
+        with self.assertRaises(sqlite3.ProgrammingError):
+            opened[-1].execute('SELECT 1')
+
     def test_database_lock_returns_bounded_503_without_late_submission(self):
         self.start_service(request_timeout=.15)
         # Hold a real SQLite writer lock beyond the HTTP client's deadline.

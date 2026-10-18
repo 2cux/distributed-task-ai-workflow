@@ -125,6 +125,8 @@ class ManagementAPIContractTests(ManagementTestCase):
             ManagementService(TaskEngine(), ADMIN)
         self.start_service()
         for options in (dict(host='0.0.0.0'), dict(max_concurrency=True), dict(port=-1),
+                        dict(database_concurrency=True), dict(database_concurrency=0),
+                        dict(database_concurrency=257),
                         dict(readonly_token=ADMIN), dict(request_timeout=float('nan'))):
             with self.assertRaises((ValueError, TypeError)):
                 ManagementService(self.engine, ADMIN, **options)
