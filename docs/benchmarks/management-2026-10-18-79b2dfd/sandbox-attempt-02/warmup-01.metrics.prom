@@ -1,0 +1,54 @@
+# HELP workflow_api_requests_total Completed HTTP requests by route template.
+# TYPE workflow_api_requests_total counter
+# HELP workflow_api_request_duration_seconds HTTP handling latency including serialization.
+# TYPE workflow_api_request_duration_seconds histogram
+# HELP workflow_api_uptime_seconds workflow api uptime seconds
+# TYPE workflow_api_uptime_seconds gauge
+workflow_api_uptime_seconds 60.11000000000058
+# HELP workflow_api_overloads_total workflow api overloads total
+# TYPE workflow_api_overloads_total counter
+workflow_api_overloads_total 0
+# HELP workflow_api_database_busy_total workflow api database busy total
+# TYPE workflow_api_database_busy_total counter
+workflow_api_database_busy_total 0
+# HELP workflow_coordinator_ticks_total workflow coordinator ticks total
+# TYPE workflow_coordinator_ticks_total counter
+workflow_coordinator_ticks_total 392
+# HELP workflow_coordinator_errors_total workflow coordinator errors total
+# TYPE workflow_coordinator_errors_total counter
+workflow_coordinator_errors_total 0
+# HELP workflow_coordinator_last_success_timestamp_seconds workflow coordinator last success timestamp seconds
+# TYPE workflow_coordinator_last_success_timestamp_seconds gauge
+workflow_coordinator_last_success_timestamp_seconds 1792296134.931957
+# HELP workflow_engine_tasks Persisted tasks by current state.
+# TYPE workflow_engine_tasks gauge
+workflow_engine_tasks{status="FAILED"} 0
+workflow_engine_tasks{status="PENDING"} 0
+workflow_engine_tasks{status="RETRYING"} 0
+workflow_engine_tasks{status="RUNNING"} 0
+workflow_engine_tasks{status="SUCCESS"} 0
+# HELP workflow_engine_workflows Persisted workflows by current state.
+# TYPE workflow_engine_workflows gauge
+workflow_engine_workflows{status="FAILED"} 0
+workflow_engine_workflows{status="PAUSED"} 0
+workflow_engine_workflows{status="PENDING"} 0
+workflow_engine_workflows{status="RUNNING"} 0
+workflow_engine_workflows{status="SUCCESS"} 0
+# HELP workflow_engine_sessions Persisted sessions by current state.
+# TYPE workflow_engine_sessions gauge
+workflow_engine_sessions{status="STOPPED"} 4
+# HELP workflow_engine_attempts Current persisted attempts; survives service restart.
+# TYPE workflow_engine_attempts gauge
+workflow_engine_attempts 0
+# HELP workflow_engine_retries Current persisted retries; survives service restart.
+# TYPE workflow_engine_retries gauge
+workflow_engine_retries 0
+# HELP workflow_engine_dispatchable_tasks Current persisted dispatchable_tasks; survives service restart.
+# TYPE workflow_engine_dispatchable_tasks gauge
+workflow_engine_dispatchable_tasks 0
+# HELP workflow_engine_overdue_sessions Current persisted overdue_sessions; survives service restart.
+# TYPE workflow_engine_overdue_sessions gauge
+workflow_engine_overdue_sessions 0
+# HELP workflow_engine_open_incidents Current persisted open_incidents; survives service restart.
+# TYPE workflow_engine_open_incidents gauge
+workflow_engine_open_incidents 0

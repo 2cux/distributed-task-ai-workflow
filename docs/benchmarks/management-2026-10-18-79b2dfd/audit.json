@@ -1,0 +1,46 @@
+{
+  "checked_utc": "2026-10-18T04:08:42.429011+00:00",
+  "commit": "79b2dfd3e043e946be2881c85a09dd0658b5e289",
+  "checks": {
+    "initial_provenance_diff_matches": true,
+    "baseline_rounds": true,
+    "baseline_warmup": true,
+    "diagnostic_rounds": true,
+    "validation_tests_ok": true,
+    "report_tests_ok": true
+  },
+  "measurement_integrity_passed": true,
+  "workspace_diff_unchanged": false,
+  "diff_sha256": {
+    "worktree-before.patch": "214a9727982aecaa69f688d305aae6a93c5a1ee0704c8388382371bbd3e814d7",
+    "worktree-after.patch": "f6d6ddc36cb78bfa670a6a3feb979df8d4637781e4c03b7a8dae6c7ea8799209"
+  },
+  "workspace_new_modified_files": [
+    "a/docs/management_api.md b/docs/management_api.md",
+    "a/tests/test_management_api.py b/tests/test_management_api.py"
+  ],
+  "workspace_changed_existing_diffs": [
+    "a/src/workflow_engine/management.py b/src/workflow_engine/management.py",
+    "a/src/workflow_engine/persistence.py b/src/workflow_engine/persistence.py",
+    "a/tests/test_connection_scope.py b/tests/test_connection_scope.py"
+  ],
+  "workspace_note": "Other shared-workspace changes observed during this task; not reverted or incorporated. Collector only creates this report directory and .artifacts snapshot/evidence. No exclusive machine reservation.",
+  "source_integrity": {
+    "baseline": {
+      "source_files_checked": 35,
+      "mismatches": [],
+      "unchanged": true
+    },
+    "diagnostic": {
+      "source_files_checked": 35,
+      "mismatches": [],
+      "unchanged": true
+    }
+  },
+  "primary_benchmark_exit_code": 1,
+  "primary_benchmark_expected_failure": "3 HTTP 503 database_busy errors, 3 missing workflows",
+  "diagnostic_benchmark_exit_code": 0,
+  "tests_executed_after_measurements": true,
+  "execution_context": "Valid rounds ran with approved loopback access outside default network sandbox",
+  "artifact_note": "SQLite backup and final exports occur after benchmark timing; excluded collection/sandbox attempts are retained"
+}

@@ -1,0 +1,12 @@
+test_configuration_boundaries_allow_write_only_load (test_benchmark_validation.BenchmarkValidationTests.test_configuration_boundaries_allow_write_only_load) ... ok
+test_invalid_configuration_fails_before_creating_resources (test_benchmark_validation.BenchmarkValidationTests.test_invalid_configuration_fails_before_creating_resources) ... ok
+test_invalid_rounds_and_suite_inputs_allocate_no_run (test_benchmark_validation.BenchmarkValidationTests.test_invalid_rounds_and_suite_inputs_allocate_no_run) ... ok
+test_nearest_rank_latency_uses_seconds_and_keeps_the_tail (test_benchmark_validation.BenchmarkValidationTests.test_nearest_rank_latency_uses_seconds_and_keeps_the_tail) ... ok
+test_result_verification_checks_root_and_join_and_json_types (test_benchmark_validation.BenchmarkValidationTests.test_result_verification_checks_root_and_join_and_json_types) ... ok
+test_result_verification_rejects_missing_duplicate_and_unexpected_nodes (test_benchmark_validation.BenchmarkValidationTests.test_result_verification_rejects_missing_duplicate_and_unexpected_nodes) ... ok
+test_total_attempt_count_cannot_hide_duplicate_and_unexecuted_tasks (test_benchmark_validation.BenchmarkValidationTests.test_total_attempt_count_cannot_hide_duplicate_and_unexecuted_tasks) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

@@ -1,0 +1,79 @@
+{
+  "warmup_runs": [
+    {
+      "timestamp": "2026-10-18T04:02:15.047114+00:00",
+      "python": "3.12.10",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "sqlite": "3.49.1",
+      "schema_version": 2,
+      "workload": "management-http-two-node-dag",
+      "passed": false,
+      "checks": {
+        "http_requests": false,
+        "completion_before_deadline": false,
+        "workflow_count": false,
+        "task_count": false,
+        "single_attempts": false,
+        "task_results": false,
+        "database_integrity": true,
+        "clean_shutdown": false
+      },
+      "failure_reasons": [
+        "http_requests",
+        "completion_before_deadline",
+        "workflow_count",
+        "task_count",
+        "single_attempts",
+        "task_results",
+        "clean_shutdown"
+      ],
+      "lifecycle_errors": [
+        "worker_WorkerSessionMismatch",
+        "worker_WorkerSessionMismatch",
+        "worker_WorkerSessionMismatch"
+      ],
+      "verification": {
+        "expected_tasks": 200,
+        "observed_tasks": 0,
+        "node_set_matches": false,
+        "invalid_results": 0,
+        "invalid_attempts": 0,
+        "passed": false
+      },
+      "configuration": {
+        "workflows": 100,
+        "reads": 300,
+        "concurrency": 8,
+        "workers": 4,
+        "deadline": 60,
+        "coordinator_poll_seconds": 0.1,
+        "worker_poll_seconds": 0.05,
+        "worker_heartbeat_seconds": 1
+      },
+      "http": {
+        "requests": 400,
+        "errors": 400,
+        "error_types": [
+          "URLError"
+        ],
+        "elapsed_seconds": 18.051,
+        "requests_per_second": 22.16,
+        "latency_ms": {
+          "p50": 346.276,
+          "p95": 583.365,
+          "p99": 660.67,
+          "maximum": 831.771
+        }
+      },
+      "execution": {
+        "completed_workflows": 0,
+        "attempts": 0,
+        "retries": 0,
+        "total_elapsed_seconds": 60.004,
+        "workflows_per_second": 0.0
+      },
+      "integrity": "ok"
+    }
+  ],
+  "runs": []
+}

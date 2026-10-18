@@ -1,0 +1,7 @@
+{
+  "business_changes": false,
+  "interrupted_session": "78032 after failed warmup; measured-01 interrupted",
+  "conclusion": "Sandbox denies client loopback socket; excluded from application baseline",
+  "error": "URLError(PermissionError errno=13 winerror=10013)",
+  "test": "Python HTTPServer + urllib ProxyHandler({}) on 127.0.0.1"
+}

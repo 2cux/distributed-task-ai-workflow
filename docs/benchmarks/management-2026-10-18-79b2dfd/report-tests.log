@@ -1,0 +1,12 @@
+test_aggregate_throughput_weights_elapsed_time_and_keeps_failed_rounds (test_benchmark_reports.BenchmarkReportTests.test_aggregate_throughput_weights_elapsed_time_and_keeps_failed_rounds) ... ok
+test_cli_rejects_invalid_rounds_and_output_collision_before_running (test_benchmark_reports.BenchmarkReportTests.test_cli_rejects_invalid_rounds_and_output_collision_before_running) ... ok
+test_cli_repeat_and_warmup_select_suite (test_benchmark_reports.BenchmarkReportTests.test_cli_repeat_and_warmup_select_suite) ... ok
+test_cli_writes_json_and_markdown_and_returns_failure_status (test_benchmark_reports.BenchmarkReportTests.test_cli_writes_json_and_markdown_and_returns_failure_status) ... ok
+test_markdown_discloses_failure_and_percentile_semantics (test_benchmark_reports.BenchmarkReportTests.test_markdown_discloses_failure_and_percentile_semantics) ... ok
+test_single_round_statistics_and_empty_run_guard (test_benchmark_reports.BenchmarkReportTests.test_single_round_statistics_and_empty_run_guard) ... ok
+test_warmup_is_retained_and_excluded_but_failure_fails_suite (test_benchmark_reports.BenchmarkReportTests.test_warmup_is_retained_and_excluded_but_failure_fails_suite) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.086s
+
+OK

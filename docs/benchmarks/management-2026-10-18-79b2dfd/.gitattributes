@@ -1,0 +1,2 @@
+# Preserve evidence bytes so SHA256SUMS remains valid after checkout.
+* -text

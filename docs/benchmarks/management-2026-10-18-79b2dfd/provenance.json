@@ -1,0 +1,25 @@
+{
+  "commit": "79b2dfd3e043e946be2881c85a09dd0658b5e289",
+  "tree": "112d822206009e5d07411d7f671857eeaa8af5db",
+  "local_origin_master": "79b2dfd3e043e946be2881c85a09dd0658b5e289",
+  "commit_date": "2026-10-17T19:12:18+08:00",
+  "subject": "进行了端到端的测试",
+  "branch": "master",
+  "remote_check": "git ls-remote origin HEAD failed: could not connect to github.com:443 via configured 127.0.0.1 proxy; latest remote not verified",
+  "initial_tracked_status": [
+    " M src/workflow_engine/management.py",
+    " M src/workflow_engine/persistence.py",
+    " M src/workflow_engine/recovery.py",
+    " M src/workflow_engine/worker_registry.py",
+    " M tests/test_connection_scope.py",
+    " M tests/test_management_stability.py",
+    " M tests/test_workflow_hot_path.py"
+  ],
+  "initial_diff_sha256": "214A9727982AECAA69F688D305AAE6A93C5A1EE0704C8388382371BBD3E814D7",
+  "source_zip_sha256": "3E5E0F77944B24D08CF1CD3950B57C9B0BCEE799158BC949EADCCB95E59EB0BB",
+  "processor": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "logical_processors": "22",
+  "local_time": "2026-10-18T12:00:21.4771433+08:00",
+  "timezone": "Asia/Shanghai",
+  "hardware_note": "CIM hardware/memory queries unavailable in sandbox; no dedicated CPU affinity or machine reservation"
+}

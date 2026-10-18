@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 633, in _rmtree_unsafe
+    os.unlink(fullname)
+PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'D:\\project\\distributed-task-ai-workflow\\.artifacts\\management-baseline-2026-10-18-79b2dfd\\source\\.management-benchmark-sc6z64ej\\engine.db'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\project\distributed-task-ai-workflow\docs\benchmarks\management-2026-10-18-79b2dfd\collect.py", line 114, in main
+    result = bench.run_benchmark()
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\project\distributed-task-ai-workflow\.artifacts\management-baseline-2026-10-18-79b2dfd\source\tools\benchmark_management.py", line 78, in run_benchmark
+    with tempfile.TemporaryDirectory(prefix='.management-benchmark-', dir=Path.cwd()) as directory:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\tempfile.py", line 950, in __exit__
+    self.cleanup()
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\tempfile.py", line 954, in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\tempfile.py", line 934, in _rmtree
+    _shutil.rmtree(name, onexc=onexc)
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 781, in rmtree
+    return _rmtree_unsafe(path, onexc)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 635, in _rmtree_unsafe
+    onexc(os.unlink, fullname, err)
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\tempfile.py", line 909, in onexc
+    _os.unlink(path)
+PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'D:\\project\\distributed-task-ai-workflow\\.artifacts\\management-baseline-2026-10-18-79b2dfd\\source\\.management-benchmark-sc6z64ej\\engine.db'

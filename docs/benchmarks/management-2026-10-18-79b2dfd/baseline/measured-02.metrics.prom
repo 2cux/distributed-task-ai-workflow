@@ -1,0 +1,110 @@
+# HELP workflow_api_requests_total Completed HTTP requests by route template.
+# TYPE workflow_api_requests_total counter
+workflow_api_requests_total{method="GET",route="/api/v1/overview",status="200"} 100
+workflow_api_requests_total{method="GET",route="/api/v1/workflows",status="200"} 100
+workflow_api_requests_total{method="GET",route="/metrics",status="200"} 100
+workflow_api_requests_total{method="POST",route="/api/v1/workflows",status="202"} 100
+# HELP workflow_api_request_duration_seconds HTTP handling latency including serialization.
+# TYPE workflow_api_request_duration_seconds histogram
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.005"} 27
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.01"} 28
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.025"} 35
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.05"} 39
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.1"} 59
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.25"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="0.5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="1"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="2"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/overview",status="200",le="+Inf"} 100
+workflow_api_request_duration_seconds_count{method="GET",route="/api/v1/overview",status="200"} 100
+workflow_api_request_duration_seconds_sum{method="GET",route="/api/v1/overview",status="200"} 7.196217000
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.005"} 19
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.01"} 20
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.025"} 40
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.05"} 49
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.1"} 92
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.25"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="0.5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="1"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="2"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/api/v1/workflows",status="200",le="+Inf"} 100
+workflow_api_request_duration_seconds_count{method="GET",route="/api/v1/workflows",status="200"} 100
+workflow_api_request_duration_seconds_sum{method="GET",route="/api/v1/workflows",status="200"} 5.131621500
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.005"} 27
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.01"} 27
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.025"} 34
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.05"} 39
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.1"} 54
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.25"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="0.5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="1"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="2"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="5"} 100
+workflow_api_request_duration_seconds_bucket{method="GET",route="/metrics",status="200",le="+Inf"} 100
+workflow_api_request_duration_seconds_count{method="GET",route="/metrics",status="200"} 100
+workflow_api_request_duration_seconds_sum{method="GET",route="/metrics",status="200"} 7.610918000
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.005"} 0
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.01"} 0
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.025"} 0
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.05"} 0
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.1"} 0
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.25"} 8
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="0.5"} 96
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="1"} 98
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="2"} 100
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="5"} 100
+workflow_api_request_duration_seconds_bucket{method="POST",route="/api/v1/workflows",status="202",le="+Inf"} 100
+workflow_api_request_duration_seconds_count{method="POST",route="/api/v1/workflows",status="202"} 100
+workflow_api_request_duration_seconds_sum{method="POST",route="/api/v1/workflows",status="202"} 31.787331300
+# HELP workflow_api_uptime_seconds workflow api uptime seconds
+# TYPE workflow_api_uptime_seconds gauge
+workflow_api_uptime_seconds 8.98399999999856
+# HELP workflow_api_overloads_total workflow api overloads total
+# TYPE workflow_api_overloads_total counter
+workflow_api_overloads_total 0
+# HELP workflow_api_database_busy_total workflow api database busy total
+# TYPE workflow_api_database_busy_total counter
+workflow_api_database_busy_total 0
+# HELP workflow_coordinator_ticks_total workflow coordinator ticks total
+# TYPE workflow_coordinator_ticks_total counter
+workflow_coordinator_ticks_total 13
+# HELP workflow_coordinator_errors_total workflow coordinator errors total
+# TYPE workflow_coordinator_errors_total counter
+workflow_coordinator_errors_total 0
+# HELP workflow_coordinator_last_success_timestamp_seconds workflow coordinator last success timestamp seconds
+# TYPE workflow_coordinator_last_success_timestamp_seconds gauge
+workflow_coordinator_last_success_timestamp_seconds 1792296250.733459
+# HELP workflow_engine_tasks Persisted tasks by current state.
+# TYPE workflow_engine_tasks gauge
+workflow_engine_tasks{status="FAILED"} 0
+workflow_engine_tasks{status="PENDING"} 0
+workflow_engine_tasks{status="RETRYING"} 0
+workflow_engine_tasks{status="RUNNING"} 0
+workflow_engine_tasks{status="SUCCESS"} 200
+# HELP workflow_engine_workflows Persisted workflows by current state.
+# TYPE workflow_engine_workflows gauge
+workflow_engine_workflows{status="FAILED"} 0
+workflow_engine_workflows{status="PAUSED"} 0
+workflow_engine_workflows{status="PENDING"} 0
+workflow_engine_workflows{status="RUNNING"} 0
+workflow_engine_workflows{status="SUCCESS"} 100
+# HELP workflow_engine_sessions Persisted sessions by current state.
+# TYPE workflow_engine_sessions gauge
+workflow_engine_sessions{status="STOPPED"} 4
+# HELP workflow_engine_attempts Current persisted attempts; survives service restart.
+# TYPE workflow_engine_attempts gauge
+workflow_engine_attempts 200
+# HELP workflow_engine_retries Current persisted retries; survives service restart.
+# TYPE workflow_engine_retries gauge
+workflow_engine_retries 0
+# HELP workflow_engine_dispatchable_tasks Current persisted dispatchable_tasks; survives service restart.
+# TYPE workflow_engine_dispatchable_tasks gauge
+workflow_engine_dispatchable_tasks 0
+# HELP workflow_engine_overdue_sessions Current persisted overdue_sessions; survives service restart.
+# TYPE workflow_engine_overdue_sessions gauge
+workflow_engine_overdue_sessions 0
+# HELP workflow_engine_open_incidents Current persisted open_incidents; survives service restart.
+# TYPE workflow_engine_open_incidents gauge
+workflow_engine_open_incidents 0
