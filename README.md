@@ -53,6 +53,9 @@
 | WorkflowOrchestrator | 在 TaskEngine 上方推进依赖、汇总状态与恢复编排 | 已实现 |
 | RecoverySystem | 独立恢复控制面，协调可信停止、任务接管、工作流修复及人工干预 | 已实现 |
 | RecoveryService / RemoteWorker | 带认证的中心 JSON RPC 与跨主机业务执行，SQLite 保留在中心本地盘 | 已实现 |
+| ToolRegistry / ToolExecutor | 显式注册外部工具、按名称调用、严格 JSON 输入输出与失败分类 | 已实现 |
+| HTTPRequestHandler | 带 origin 限制、超时和响应大小限制的 HTTP(S) 请求执行 | 已实现 |
+| InputBinding | 将上游 JSON 字段绑定到下游嵌套请求参数 | 已实现 |
 
 ## DAG 工作流
 
@@ -91,6 +94,28 @@ python -m workflow_engine.llm_cli --database llm.sqlite3 --workflow examples/llm
 的 `llm_budget` 配置资源上限，本地与远程 Worker 在原子领取时统一检查。
 token 上限按已知用量阻止后续调用，单次请求可能跨过阈值。示例见
 [`examples/llm_budgeted_workflow.json`](examples/llm_budgeted_workflow.json)。
+
+## 外部工具执行
+
+`ToolRegistry` 将可信工具导出为现有任务注册表；节点可直接调用工具名，也可通过
+`tool.call.v1` 接收规划节点选择的工具名和参数。`http.request.v1` 支持真实 HTTP(S)
+查询和操作、JSON/文本请求体、受限 origin、网络超时与响应大小限制。`InputBinding`
+将上游结果字段写入下游嵌套请求参数，绑定与任务放行保持原子性。
+
+工具结果保存到 SQLite 并沿 DAG 传递，支持远程 Worker；结果不确定的写请求不会
+自动重放。注册示例、完整数据流、失败语义与四组独立测试见
+[工具执行原语](docs/tool_execution.md)。
+
+## DAG + LLM + HTTP 集成
+
+`create_workflow_registry()` 提供统一注册入口，支持在同一 DAG 中执行
+“HTTP 获取上下文 → LLM 规划 → JSON 解析 → 工具调用 → LLM 汇总”。
+内置 `llm.parse_json.v1` 将模型文本转换为可供下游绑定的 JSON 对象，
+复用既有持久化、重试、预算与远程 Worker。命令行通过
+`--http-allowed-origin` 配置 HTTP 工具允许访问的服务。
+
+完整示例见 [`examples/http_llm_workflow.json`](examples/http_llm_workflow.json)，
+统一入口、配置与四组独立测试见 [AI 协同工作流](docs/ai_workflows.md)。
 
 ## 外部管理与可观测 API
 

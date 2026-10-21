@@ -335,6 +335,55 @@ recovery.confirm_task_stopped(
 | `tests/test_recovery_workflow_integration.py` | 核对成功结果修复 DAG、保留完成分支、重启后暂停仍阻止领取、额外重试预算、最终失败及过期决策拒绝 |
 | `tests/test_recovery_host_integration.py` | 主机会话标识和明确快照隔离、健康会话继续工作、新 incarnation 不被旧确认影响、验证器拒绝证明时不重放；使用本机数据库模拟主机故障域 |
 | `tests/test_recovery_remote_integration.py` | 实际 HTTP RPC 与独立 Worker 子进程、远端本地函数和中心重试、网络分区时不重放、认证/注册表拒绝、撤权和过期 owner 拒绝；测试通过 loopback 验证协议 |
+| `tests/test_recovery_remote_dag_integration.py` | 远程 Worker 提交业务副作用后异常退出，组合验证所有权、旧结果拒绝、可信停止前不重放、DAG 安全恢复、业务键去重及重启一致性；另覆盖非幂等和无剩余预算分支 |
+
+### 远程 Worker 异常退出与 DAG 恢复组合场景
+
+`test_recovery_remote_dag_integration.py` 使用真实本机 HTTP、两个独立 Python Worker
+子进程和中心 SQLite。DAG 的两个根节点 `stable`、`effect` 汇合至 `merge`。
+单槽 Worker 先按优先级完成 `stable`，再执行 `effect`；业务调用由子进程执行，
+中心注册函数若被误调用则立即失败。
+
+1. `effect` 以稳定业务键写入独立业务数据库，提交副作用后通过文件屏障等待。
+   测试读取中心持久化的 session、owner 和 attempt，先验证错误 owner 的结果被拒绝，
+   再释放屏障触发 `os._exit(37)`，监督者等待确切子进程退出。
+2. 推进可注入的注册表时钟，使旧会话被撤权。中心打开关联任务、会话、主机及 DAG
+   的 `WAIT_STOP` 事故并暂停工作流。启动健康替换 Worker，重复扫描仍须保持
+   `RUNNING / attempt=1 / retry=0`，汇合节点不能执行，旧会话结果也不能写入。
+3. 重新打开中心引擎与恢复协调器，确认暂停仍持久存在。监督者对已等待退出的确切
+   旧会话提交停止证据；重复确认和扫描只能恢复一次、扣减一次重试预算。
+4. 幂等且剩余一次重试时，由替换 Worker 领取第二次 attempt。逐一篡改 owner、
+   session 或 attempt 的提交都必须被拒绝，任务结果、事件和 DAG 快照保持不变。
+   释放第二个屏障后，`effect` 成功、`merge` 绑定 `7 + 11` 得到 `18`；
+   `stable` 的结果和事件历史不变，两个业务调用经唯一键约束只保留一条副作用。
+5. 对非幂等节点和零剩余预算节点，停止确认后保留 `UncertainExecutionError`，
+   转为人工处理；接受最终失败后 DAG 为 `FAILED`，`merge` 为 `SKIPPED` 且从未执行。
+   即使重启引擎默认预算提高到 `99`，也不能覆盖原先持久化的任务预算。
+6. 检查任务与 DAG 终态、执行计数、有序事件、停止与恢复审计、会话停止、所有权和
+   hold 清理。关闭服务后再次打开数据库，重复提交同一 DAG、扫描并调用执行入口，
+   终态与历史均不能改变；SQLite 完整性和外键检查须通过。
+
+这三个用例验证 loopback 协议和真实进程退出，不模拟物理主机断电；副作用去重由
+测试业务数据库的唯一键实现。文件屏障控制崩溃与回报时点，所有子进程在清理阶段
+有界等待，必要时终止并等待回收。
+
+### 2026-10-19 验证结果与失败原因
+
+- 专项回归：上述新增文件与远程恢复、工作流恢复、主机恢复、进程恢复、DAG 恢复、
+  Worker 接管、远程端到端工作流共 8 个文件，**56 项通过**（26.87 秒）。
+- 完整回归：`python -m pytest tests -q`，**498 项通过、4 项跳过**（128.01 秒），
+  无失败或错误。4 项跳过均为容器部署测试，默认要求显式设置
+  `WORKFLOW_CONTAINER_TESTS=1` 并提供运行中的 Docker Engine，本轮未执行。
+- 此前沙箱内远程测试在 RPC 注册阶段报 `RemoteTransportError`。最小 TCP 连接探针
+  进一步确认：沙箱允许创建本机监听，但连接 `127.0.0.1` 时触发
+  `PermissionError / WinError 10013`，即套接字访问被权限策略拒绝。具备本机网络权限
+  的环境中，专项与完整回归均通过；本轮没有发现需要修复的恢复逻辑失败。
+- 本轮未修改生产代码，也未放宽所有权校验、可信停止确认、幂等限制或持久化重试
+  预算。测试范围内未发现新增回归。
+
+本地 JUnit 报告保存在 `.artifacts/remote-dag-validation/targeted.xml` 与 `full.xml`；
+该目录被 Git 忽略。执行时使用 `PYTHONPATH=src`，完整回归额外传入
+`--junitxml=.artifacts/remote-dag-validation/full.xml` 保存报告。
 
 ```powershell
 $env:PYTHONPATH = 'src'
@@ -342,6 +391,7 @@ python -m unittest discover -s tests -p test_recovery_process_integration.py -v
 python -m unittest discover -s tests -p test_recovery_workflow_integration.py -v
 python -m unittest discover -s tests -p test_recovery_host_integration.py -v
 python -m unittest discover -s tests -p test_recovery_remote_integration.py -v
+python -m unittest discover -s tests -p test_recovery_remote_dag_integration.py -v
 python -m unittest discover -s tests -p 'test_recovery*integration.py' -v
 python -m unittest discover -s tests -v
 ```

@@ -27,7 +27,7 @@ from .persistence import StaleExecutionError
 from .worker_registry import (WorkerRegistry, WorkerRecord, WorkerSessionRecord,
                               WorkerRegistryError, WorkerAlreadyActive, WorkerSessionMismatch, WorkerNotReady)
 from .reliable_worker import ReliableWorker, WorkerMonitor
-from .dag import DAGNode, DAGWorkflow, OutputRef, NodeStatus, WorkflowStatus, NodeRun, WorkflowRun
+from .dag import DAGNode, DAGWorkflow, OutputRef, InputBinding, NodeStatus, WorkflowStatus, NodeRun, WorkflowRun
 from .workflow import WorkflowOrchestrator
 from .llm_usage import LLMBudget
 from .recovery import RecoverySystem, RecoveryReport, RecoveryIncident, RecoveryConflict
@@ -38,8 +38,18 @@ from .llm import (LLMConfig, LLMError, LLMHTTPError, LLMTimeoutError, LLMRespons
                   LLMPermanentError, LLMTransientError,
                   LLMOutputError, LLM_OUTPUT_HANDLER, validate_llm_output,
                   OpenAIChatHandler, LLM_HANDLER, create_llm_registry)
+from .tools import (ToolRegistry, ToolDefinition, ToolExecutor, TOOL_HANDLER, ToolError,
+                    ToolInputError, ToolNotFoundError, ToolTransientError, ToolResultError, ToolExecutionError)
+from .http_tool import (HTTPConfig, HTTPRequestHandler, HTTP_HANDLER, HTTPStatusError,
+                        HTTPTransportError, HTTPResponseError, create_http_registry)
+from .ai_workflow import LLM_JSON_HANDLER, parse_llm_json, create_workflow_registry
 
 __all__ = [
+    "LLM_JSON_HANDLER", "parse_llm_json", "create_workflow_registry",
+    "ToolRegistry", "ToolDefinition", "ToolExecutor", "TOOL_HANDLER", "ToolError",
+    "ToolInputError", "ToolNotFoundError", "ToolTransientError", "ToolResultError", "ToolExecutionError",
+    "HTTPConfig", "HTTPRequestHandler", "HTTP_HANDLER", "HTTPStatusError",
+    "HTTPTransportError", "HTTPResponseError", "create_http_registry", "InputBinding",
     "LLMBudget",
     "FailureCategory", "LLMPermanentError", "LLMTransientError",
     "LLMConfig", "LLMError", "LLMHTTPError", "LLMTimeoutError", "LLMResponseError",

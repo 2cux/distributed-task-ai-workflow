@@ -113,17 +113,9 @@ class SQLiteWorkflowStore:
                     error = 'dependency failed or was skipped'
                 elif all(status is NodeStatus.SUCCESS for status in dependencies):
                     try:
-                        kwargs = dict(node.kwargs)
-                        for argument, reference in node.inputs.items():
-                            value = json.loads(rows[reference.node_id]['result'])
-                            for part in reference.path:
-                                if type(part) is int and isinstance(value, list) and part >= 0:
-                                    value = value[part]
-                                elif isinstance(part, str) and isinstance(value, dict):
-                                    value = value[part]
-                                else:
-                                    raise ValueError(f"invalid output path for {argument!r}")
-                            kwargs[argument] = value
+                        sources = {ref.node_id for ref in node.inputs.values()} | {
+                            binding.source.node_id for binding in node.bindings}
+                        kwargs = node.materialize_kwargs({key: json.loads(rows[key]['result']) for key in sources})
                         task_definition = json.loads(row['task_definition'])
                         task_definition['kwargs'] = kwargs
                         db.execute("UPDATE tasks SET definition=?, workflow_blocked=0 WHERE id=?",

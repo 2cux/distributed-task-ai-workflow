@@ -11,7 +11,7 @@ class FailureCategory(str, Enum):
 
 
 def classify_task_failure(task) -> FailureCategory | None:
-    """Classify LLM failures conservatively; ordinary tasks retain their policy.
+    """Classify external-call failures conservatively; ordinary tasks retain their policy.
 
     A handler marker also covers aliases. Stable names cover control-plane
     registries whose callables are placeholders rather than model adapters.
@@ -23,13 +23,14 @@ def classify_task_failure(task) -> FailureCategory | None:
         return FailureCategory(category)
     scope = getattr(task.callable, 'failure_scope', None)
     handler = getattr(task, '_handler_name', None)
-    if scope not in ('llm', 'llm_validation') and handler not in ('llm.chat.v1', 'llm.validate.v1'):
+    if scope not in ('llm', 'llm_validation', 'tool') and handler not in (
+            'llm.chat.v1', 'llm.validate.v1', 'llm.parse_json.v1', 'tool.call.v1', 'http.request.v1'):
         return None
     error_type = getattr(error, 'original_type', type(error).__name__)
     if isinstance(error, (ValueError, TypeError)) or error_type in ('ValueError', 'TypeError', 'LLMOutputError'):
         return FailureCategory.PERMANENT
     # Includes task soft timeouts, process interruption, and unclassified errors.
-    # idempotent=True alone cannot prove the provider did not process a request.
+    # idempotent=True alone cannot prove an external service did not process a request.
     return FailureCategory.UNCERTAIN
 
 

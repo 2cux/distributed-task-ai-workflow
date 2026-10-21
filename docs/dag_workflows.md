@@ -35,11 +35,19 @@ worker；执行器继续负责任务重试、超时、执行所有权和事件�
 使该节点进入 FAILED，实际执行次数保持 0，其后代进入 SKIPPED。
 绑定不能覆盖静态 kwargs，参数调用签名错误则按普通任务失败与重试处理。
 
+外部工具可以通过 `ToolRegistry` 注册，HTTP 请求使用 `http.request.v1`。
+需要把上游字段写入请求体等嵌套参数时，使用
+`bindings=(InputBinding(('json_body', 'id'), OutputRef('fetch', ('json', 'id'))),)`；
+它允许替换静态 kwargs 的指定叶子，引用自动产生依赖边，不能与其他绑定目标重叠。
+完整示例和重试、副作用语义见 [工具执行原语](tool_execution.md)。
+
 定义通过 Kahn 算法验证，拒绝空图、重复节点、未知依赖、自依赖与环。
 拓扑计算复杂度为 O(V+E)。节点配置复用 Task 的优先级、重试、超时、到期时间
 和幂等参数约束。参数、输出必须是严格 JSON 数据，静态位置参数外层使用元组。
 提交时保存经过验证的 JSON 快照，之后修改调用方字典不会改变已提交的图。
 可以通过 `to_dict()` / `from_dict()` 保存、加载工作流定义。
+`from_dict()` 严格检查 JSON 容器和字段：数组不能用字符串或对象代替，引用路径与
+绑定目标必须是数组，未知字段及缺失必填字段会在提交前拒绝。
 
 ```python
 from workflow_engine import (

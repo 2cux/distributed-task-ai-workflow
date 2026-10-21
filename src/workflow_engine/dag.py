@@ -10,12 +10,25 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
+import json
 from typing import Any
 from uuid import uuid4
 
 from .persistence import _json
 from .task import Task
 from .llm_usage import LLMBudget
+
+
+def _definition_object(value, allowed, required):
+    if (type(value) is not dict or value.keys() - set(allowed) or
+            set(required) - value.keys()):
+        raise ValueError('definition object has missing or unsupported fields')
+
+
+def _definition_array(value, name):
+    if type(value) is not list:
+        raise TypeError(f'{name} must be an array')
+    return value
 
 
 class WorkflowStatus(str, Enum):
@@ -47,6 +60,49 @@ class OutputRef:
         if not isinstance(self.path, tuple) or any(type(p) not in (str, int) for p in self.path):
             raise ValueError("OutputRef.path must contain string keys or integer indices")
 
+    @classmethod
+    def from_dict(cls, value: dict) -> OutputRef:
+        _definition_object(value, ('node_id', 'path'), ('node_id',))
+        return cls(value['node_id'], tuple(_definition_array(value.get('path', []), 'output path')))
+
+
+@dataclass(frozen=True)
+class InputBinding:
+    """Bind an output into a keyword argument, optionally inside a JSON body.
+
+    target=('json_body', 'items', 0, 'id') updates that leaf. Parent containers
+    must exist in static kwargs; a dictionary leaf may be new. Lists never grow.
+    """
+
+    target: tuple[str | int, ...]
+    source: OutputRef
+
+    def __post_init__(self):
+        if (not isinstance(self.target, tuple) or not self.target or
+                type(self.target[0]) is not str or not self.target[0] or
+                any(type(part) not in (str, int) or type(part) is int and part < 0
+                    for part in self.target)):
+            raise ValueError('binding target must start with a keyword and contain keys or nonnegative indices')
+        if not isinstance(self.source, OutputRef):
+            raise TypeError('binding source must be OutputRef')
+
+    @classmethod
+    def from_dict(cls, value: dict) -> InputBinding:
+        _definition_object(value, ('target', 'source'), ('target', 'source'))
+        return cls(tuple(_definition_array(value['target'], 'binding target')),
+                   OutputRef.from_dict(value['source']))
+
+
+def _path_value(value, path):
+    for part in path:
+        if type(part) is int and isinstance(value, list) and part >= 0:
+            value = value[part]
+        elif type(part) is str and isinstance(value, dict):
+            value = value[part]
+        else:
+            raise ValueError('output or binding path does not match its JSON container')
+    return value
+
 
 @dataclass(frozen=True)
 class DAGNode:
@@ -61,6 +117,7 @@ class DAGNode:
     timeout: float | None = None
     idempotent: bool = False
     scheduled_at: float | None = None
+    bindings: tuple[InputBinding, ...] = ()
 
     def __post_init__(self):
         if not isinstance(self.handler, str) or not self.handler:
@@ -82,26 +139,66 @@ class DAGNode:
         _json(self.kwargs)
         if self.inputs.keys() & self.kwargs.keys():
             raise ValueError("inputs cannot overwrite static kwargs")
+        if not isinstance(self.bindings, tuple) or any(not isinstance(b, InputBinding) for b in self.bindings):
+            raise TypeError('bindings must be a tuple of InputBinding')
+        targets = [(key,) for key in self.inputs]
+        for binding in self.bindings:
+            target = binding.target
+            if any(target[:len(other)] == other or other[:len(target)] == target for other in targets):
+                raise ValueError('input bindings must not overlap')
+            targets.append(target)
 
     @property
     def dependencies(self) -> tuple[str, ...]:
-        return tuple(dict.fromkeys((*self.depends_on, *(ref.node_id for ref in self.inputs.values()))))
+        return tuple(dict.fromkeys((*self.depends_on, *(ref.node_id for ref in self.inputs.values()),
+                                    *(binding.source.node_id for binding in self.bindings))))
+
+    def materialize_kwargs(self, outputs: dict[str, Any]) -> dict:
+        """Resolve detached JSON inputs before opening the durable dispatch gate."""
+        kwargs = json.loads(_json(self.kwargs))
+        for argument, reference in self.inputs.items():
+            kwargs[argument] = json.loads(_json(_path_value(outputs[reference.node_id], reference.path)))
+        for binding in self.bindings:
+            value = _path_value(outputs[binding.source.node_id], binding.source.path)
+            parent = _path_value(kwargs, binding.target[:-1])
+            leaf = binding.target[-1]
+            if type(leaf) is int and isinstance(parent, list):
+                # Assignment validates bounds; negative indices were rejected.
+                parent[leaf] = json.loads(_json(value))
+            elif type(leaf) is str and isinstance(parent, dict):
+                parent[leaf] = json.loads(_json(value))
+            else:
+                raise ValueError('binding target does not match its JSON container')
+        return kwargs
 
     def to_dict(self) -> dict:
-        return dict(id=self.id, handler=self.handler, depends_on=list(self.depends_on),
+        value = dict(id=self.id, handler=self.handler, depends_on=list(self.depends_on),
                     args=list(self.args), kwargs=self.kwargs,
                     inputs={key: dict(node_id=ref.node_id, path=list(ref.path))
                             for key, ref in self.inputs.items()}, priority=self.priority,
                     max_retries=self.max_retries, timeout=self.timeout,
                     idempotent=self.idempotent, scheduled_at=self.scheduled_at)
+        # Keep existing workflows' canonical definitions unchanged.
+        if self.bindings:
+            value['bindings'] = [dict(target=list(binding.target), source=dict(
+                node_id=binding.source.node_id, path=list(binding.source.path))) for binding in self.bindings]
+        return value
 
     @classmethod
     def from_dict(cls, value: dict) -> DAGNode:
+        _definition_object(value, ('id', 'handler', 'depends_on', 'args', 'kwargs', 'inputs',
+                                  'priority', 'max_retries', 'timeout', 'idempotent', 'scheduled_at',
+                                  'bindings'), ('id', 'handler'))
         value = dict(value)
-        value['args'] = tuple(value.get('args', ()))
-        value['depends_on'] = tuple(value.get('depends_on', ()))
-        value['inputs'] = {key: OutputRef(ref['node_id'], tuple(ref.get('path', ())))
+        value['args'] = tuple(_definition_array(value.get('args', []), 'args'))
+        value['depends_on'] = tuple(_definition_array(value.get('depends_on', []), 'depends_on'))
+        for field in ('inputs', 'kwargs'):
+            if field in value and type(value[field]) is not dict:
+                raise TypeError(f'{field} must be an object')
+        value['inputs'] = {key: OutputRef.from_dict(ref)
                            for key, ref in value.get('inputs', {}).items()}
+        value['bindings'] = tuple(InputBinding.from_dict(binding)
+            for binding in _definition_array(value.get('bindings', []), 'bindings'))
         return cls(**value)
 
 
@@ -154,7 +251,9 @@ class DAGWorkflow:
 
     @classmethod
     def from_dict(cls, value: dict) -> DAGWorkflow:
-        return cls(nodes=tuple(DAGNode.from_dict(node) for node in value['nodes']),
+        _definition_object(value, ('id', 'name', 'nodes', 'llm_budget'), ('id', 'nodes'))
+        return cls(nodes=tuple(DAGNode.from_dict(node)
+                              for node in _definition_array(value['nodes'], 'nodes')),
                    id=value['id'], name=value.get('name', 'workflow'),
                    llm_budget=LLMBudget.from_dict(value['llm_budget']) if 'llm_budget' in value else None)
 

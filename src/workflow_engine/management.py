@@ -64,16 +64,24 @@ def _workflow(value, registry):
         raise APIError(400, 'invalid_workflow', 'nodes must contain 1..1000 entries')
     for node in value['nodes']:
         _object(node, ('id', 'handler', 'depends_on', 'args', 'kwargs', 'inputs',
-                       'priority', 'max_retries', 'timeout', 'idempotent', 'scheduled_at'), ('id', 'handler'))
+                       'priority', 'max_retries', 'timeout', 'idempotent', 'scheduled_at', 'bindings'), ('id', 'handler'))
         if type(node['handler']) is not str or node['handler'] not in registry:
             raise APIError(400, 'unknown_handler', 'handler is not registered')
-        for field in ('args', 'depends_on'):
+        for field in ('args', 'depends_on', 'bindings'):
             if field in node and type(node[field]) is not list:
                 raise APIError(400, 'invalid_workflow', field + ' must be an array')
         for field in ('kwargs', 'inputs'):
             if field in node and type(node[field]) is not dict:
                 raise APIError(400, 'invalid_workflow', field + ' must be an object')
         for reference in node.get('inputs', {}).values():
+            _object(reference, ('node_id', 'path'), ('node_id',))
+            if 'path' in reference and type(reference['path']) is not list:
+                raise APIError(400, 'invalid_workflow', 'output path must be an array')
+        for binding in node.get('bindings', []):
+            _object(binding, ('target', 'source'), ('target', 'source'))
+            if type(binding['target']) is not list:
+                raise APIError(400, 'invalid_workflow', 'binding target must be an array')
+            reference = binding['source']
             _object(reference, ('node_id', 'path'), ('node_id',))
             if 'path' in reference and type(reference['path']) is not list:
                 raise APIError(400, 'invalid_workflow', 'output path must be an array')

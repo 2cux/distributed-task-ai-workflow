@@ -200,6 +200,7 @@ class OpenAIChatHandler:
                 response_received = True
                 if response.status != 200:
                     raise LLMHTTPError(response.status)
+                expected_length = response.length
                 raw = response.read(self.config.max_response_bytes + 1)
         except HTTPError as error:
             status = error.code
@@ -235,6 +236,8 @@ class OpenAIChatHandler:
             raise LLMError('LLM API transport failed; outcome may be unknown') from None
         if len(raw) > self.config.max_response_bytes:
             raise LLMResponseError('LLM API response exceeds max_response_bytes')
+        if expected_length is not None and len(raw) != expected_length:
+            raise LLMResponseError('LLM API response was truncated; outcome may be unknown')
         try:
             value = json.loads(raw, parse_constant=_reject_constant)
             choice = value['choices'][0]

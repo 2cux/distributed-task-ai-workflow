@@ -107,7 +107,8 @@ class HTTPFixture(unittest.TestCase):
                 try:
                     self.send_response(status)
                     self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(raw)))
+                    if not any(key.lower() == 'content-length' for key in headers):
+                        self.send_header('Content-Length', str(len(raw)))
                     for key, value in headers.items():
                         self.send_header(key, value)
                     self.end_headers()

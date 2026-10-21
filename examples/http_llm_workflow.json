@@ -1,0 +1,50 @@
+{
+  "id": "http-llm-tool-demo-v1",
+  "name": "HTTP retrieval, LLM plan, HTTP action, LLM summary",
+  "llm_budget": {"max_calls": 2},
+  "nodes": [
+    {
+      "id": "fetch",
+      "handler": "http.request.v1",
+      "kwargs": {"url": "http://127.0.0.1:8090/context"}
+    },
+    {
+      "id": "plan",
+      "handler": "llm.chat.v1",
+      "kwargs": {
+        "messages": [
+          {"role": "system", "content": "Read the user context and produce ONLY a JSON object with name and arguments. name must be http.request.v1. arguments must contain url=http://127.0.0.1:8090/actions, method=POST, and json_body containing your analysis. Do not use Markdown fences."},
+          {"role": "user", "content": ""}
+        ]
+      },
+      "bindings": [
+        {"target": ["messages", 1, "content"], "source": {"node_id": "fetch", "path": ["text"]}}
+      ]
+    },
+    {
+      "id": "parse",
+      "handler": "llm.parse_json.v1",
+      "kwargs": {"required_keys": ["name", "arguments"]},
+      "inputs": {"result": {"node_id": "plan"}}
+    },
+    {
+      "id": "execute",
+      "handler": "tool.call.v1",
+      "inputs": {
+        "tool_name": {"node_id": "parse", "path": ["name"]},
+        "arguments": {"node_id": "parse", "path": ["arguments"]}
+      }
+    },
+    {
+      "id": "summarize",
+      "handler": "llm.chat.v1",
+      "kwargs": {"system_prompt": "Summarize the HTTP action result in Chinese."},
+      "inputs": {"prompt": {"node_id": "execute", "path": ["text"]}}
+    },
+    {
+      "id": "check",
+      "handler": "llm.validate.v1",
+      "inputs": {"result": {"node_id": "summarize"}}
+    }
+  ]
+}

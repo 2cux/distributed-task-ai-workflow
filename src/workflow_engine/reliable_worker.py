@@ -208,6 +208,8 @@ class ReliableWorker:
 
     def stop(self) -> None:
         with self._lock:
+            if self._status is WorkerStatus.STOPPED:
+                return
             if self._status is WorkerStatus.CREATED:
                 self._status = WorkerStatus.STOPPED
             elif self._status is WorkerStatus.RUNNING:

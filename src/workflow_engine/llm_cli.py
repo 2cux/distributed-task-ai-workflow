@@ -8,7 +8,10 @@ import os
 from pathlib import Path
 
 from .dag import DAGNode, DAGWorkflow, WorkflowStatus
-from .llm import LLMConfig, LLM_HANDLER, create_llm_registry
+from .llm import LLMConfig, LLM_HANDLER
+from .ai_workflow import create_workflow_registry
+from .http_tool import HTTPConfig
+from .persistence import PersistenceError
 from .retry import RetryPolicy
 from .taskengine import TaskEngine
 from .workflow import WorkflowOrchestrator
@@ -23,6 +26,8 @@ def main(argv=None):
     source.add_argument('--workflow', type=Path, help='DAG JSON file (stable id allows resuming)')
     parser.add_argument('--model', help='Override LLM_MODEL')
     parser.add_argument('--base-url', help='Override LLM_BASE_URL (include the API version path)')
+    parser.add_argument('--http-allowed-origin', action='append',
+                        help='Allow an HTTP tool service origin; repeat for multiple services')
     parser.add_argument('--max-workers', type=int, default=1)
     parser.add_argument('--max-retries', type=int, default=0, help='Retries may incur additional provider charges')
     parser.add_argument('--max-calls', type=int, help='Workflow LLM attempt limit (prompt mode)')
@@ -33,10 +38,13 @@ def main(argv=None):
         env['LLM_MODEL'] = args.model
     if args.base_url is not None:
         env['LLM_BASE_URL'] = args.base_url
+    if args.http_allowed_origin is not None:
+        env['HTTP_ALLOWED_ORIGINS'] = json.dumps(args.http_allowed_origin)
     try:
         if args.workflow and (args.max_calls is not None or args.max_total_tokens is not None):
             raise ValueError('set llm_budget in workflow JSON; budget flags require --prompt')
-        registry = create_llm_registry(LLMConfig.from_env(env))
+        http_config = HTTPConfig.from_env(env) if 'HTTP_ALLOWED_ORIGINS' in env else None
+        registry = create_workflow_registry(LLMConfig.from_env(env), http_config=http_config)
         budget = (LLMBudget(args.max_calls, args.max_total_tokens)
                   if args.max_calls is not None or args.max_total_tokens is not None else None)
         workflow = (DAGWorkflow.from_dict(json.loads(args.workflow.read_text(encoding='utf-8-sig')))
@@ -47,7 +55,7 @@ def main(argv=None):
                             retry_policy=RetryPolicy(args.max_retries, initial_delay=1))
         orchestrator = WorkflowOrchestrator(engine)
         orchestrator.submit(workflow)
-    except (ValueError, TypeError, OSError, KeyError) as error:
+    except (ValueError, TypeError, OSError, KeyError, PersistenceError) as error:
         parser.error(str(error))
     result = orchestrator.run(workflow.id)
     print(json.dumps(asdict(result), ensure_ascii=False, indent=2))

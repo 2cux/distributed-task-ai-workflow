@@ -72,6 +72,7 @@ class FailurePolicyTests(unittest.TestCase):
                 handler = OpenAIChatHandler(LLMConfig(SECRET, 'model', 'http://unused.invalid/v1'))
                 response = BytesIO(json.dumps(completion()).encode())
                 response.status = 200
+                response.length = len(response.getvalue())
                 with patch('workflow_engine.llm.build_opener') as opener:
                     opener.return_value.open.side_effect = [fault, response]
                     engine = TaskEngine(retry_policy=RetryPolicy(4))

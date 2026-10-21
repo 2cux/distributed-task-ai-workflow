@@ -11,12 +11,17 @@ def openapi_document():
         'id': text, 'handler': text, 'depends_on': {'type': 'array', 'items': text},
         'args': {'type': 'array', 'items': json_value}, 'kwargs': {'type': 'object', 'additionalProperties': json_value},
         'inputs': {'type': 'object', 'additionalProperties': ref('OutputRef')},
+        'bindings': {'type': 'array', 'items': ref('InputBinding')},
         'priority': {'type': 'integer', 'minimum': -(2**63), 'maximum': 2**63-1},
         'max_retries': {'type': ['integer', 'null'], 'minimum': 0, 'maximum': 2**63-1},
         'timeout': {'type': ['number', 'null'], 'exclusiveMinimum': 0},
         'scheduled_at': {'type': ['number', 'null'], 'minimum': 0}, 'idempotent': {'type': 'boolean'}})
     schemas = {'Node': node, 'OutputRef': dict(type='object', additionalProperties=False,
         required=['node_id'], properties={'node_id': text, 'path': {'type': 'array', 'items': {'type': ['string', 'integer']}}}),
+        'InputBinding': dict(type='object', additionalProperties=False, required=['target', 'source'], properties={
+            'target': {'type': 'array', 'minItems': 1, 'prefixItems': [text],
+                       'items': {'anyOf': [{'type': 'string'}, {'type': 'integer', 'minimum': 0}]}},
+            'source': ref('OutputRef')}),
         'WorkflowDefinition': dict(type='object', additionalProperties=False, required=['id', 'nodes'],
             properties={'id': {**text, 'maxLength': 256}, 'name': {**text, 'maxLength': 512},
                         'nodes': {'type': 'array', 'minItems': 1, 'maxItems': 1000, 'items': ref('Node')},

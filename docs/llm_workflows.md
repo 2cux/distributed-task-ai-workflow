@@ -1,5 +1,8 @@
 # 真实 LLM API 与 DAG 工作流
 
+需要与 HTTP 和自定义工具串联时，使用统一入口 `create_workflow_registry()`，
+以及 `llm.parse_json.v1` 结构化输出节点，见 [AI 协同工作流](ai_workflows.md)。
+
 `llm.chat.v1` 是内置的文本生成处理器。节点通过 HTTP 调用 OpenAI 兼容的
 Chat Completions API，回答和供应商返回的 token 用量通过既有任务事务保存到
 SQLite。支持本地 Worker、RemoteWorker、管理 API 提交的 DAG 和重启后查询。
@@ -200,6 +203,8 @@ CLI `--max-retries`，也只自动重试明确的临时性失败：
 `billing_hard_limit_reached`、`billing_not_active`、`credit_balance_exhausted` 识别为
 永久性错误。HTTP 错误消息仅包含状态码；底层网络异常、响应体和供应商消息不会写入
 错误或事件。已开始读取成功响应后的传输故障一律按结果不确定处理。
+响应正文长度与 `Content-Length` 不符时，即使已收到的部分是合法 JSON，也按结果
+不确定拒绝，不自动重试或放行下游；这与模型 `finish_reason="length"` 的文本截断不同。
 对于兼容供应商，没有其明确的未执行证明时，500／网关错误采用保守策略，避免重复生成。
 
 处理器自身不重试，一次 attempt 至多发起一次模型请求。分类和 `retryable` 标志保存到
