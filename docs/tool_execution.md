@@ -11,7 +11,13 @@
 from workflow_engine import ToolRegistry, TOOL_HANDLER
 
 tools = ToolRegistry()
-tools.register('inventory.lookup.v1', lookup_inventory, description='查询库存')
+tools.register('inventory.lookup.v1', lookup_inventory, description='查询库存',
+    parameters_schema={
+        'type': 'object',
+        'properties': {'sku': {'type': 'string', 'minLength': 1}},
+        'required': ['sku'],
+        'additionalProperties': False,
+    })
 handlers = tools.to_task_registry()
 
 # 固定工具：handler 名称直接用 inventory.lookup.v1。
@@ -22,10 +28,32 @@ result = handlers[TOOL_HANDLER](
 )
 ```
 
-`register(name, handler, description='')` 拒绝重复、空名称和保留名称
+`register(name, handler, *, description='', parameters_schema=None)` 拒绝重复、空名称和保留名称
 `tool.call.v1`。工具必须是具有可检查签名的同步 callable。调用前检查参数是否
-满足函数签名，并检查输入、输出是否为严格 JSON；它不执行 JSON Schema 类型校验，
-业务参数约束由 adapter 检查。`describe()` 返回名称和说明目录，可供规划层使用。
+满足函数签名，并检查输入、输出是否为严格 JSON。可选 `parameters_schema` 对实际
+提交的参数执行 JSON Schema 校验，失败抛出 `ToolInputError`，不会进入工具函数。
+不传 schema 时保持原有行为；业务约束仍可由 adapter 补充检查。
+
+为保持零运行依赖，目前支持以下明确的 JSON Schema 子集（不是完整验证器）：
+
+- 根 schema 必须声明 `type: object`；嵌套 schema 可为空对象。
+- `type` 支持单个 `object`、`array`、`string`、`integer`、`number`、`boolean`、`null`。
+  布尔值不视为数字，`1.0` 满足 integer；不会转换传入值。
+- `properties`、`required`、布尔型 `additionalProperties`、单 schema 的 `items`、
+  非空且无重复值的 `enum`、字符串 `description`。
+- 数字 `minimum` / `maximum`、字符串 `minLength` / `maxLength`、数组 `minItems` / `maxItems`。
+
+这些关键词遵循 [JSON Schema 类型与约束语义](https://json-schema.org/understanding-json-schema/reference/type)。
+不支持的关键词（包括 `$ref`、组合 schema、`default`）或非严格 JSON schema 在注册时
+抛出 `ValueError`，不留下部分注册结果，不解析外部引用或访问网络。
+`properties` 不隐含必填，额外字段默认允许；函数签名校验始终生效。
+固定工具的位置参数按签名参数名验证，`*args` 按其参数名对应数组，`**kwargs` 展开为字段；
+展开后重名则拒绝调用。只验证显式提交的参数，不填充或序列化函数默认值。
+
+`describe()` 返回名称和说明目录，有 schema 的工具额外返回 `parameters_schema`。
+目录只包含部署代码显式提供的描述，不推断注解、不输出函数对象或默认值；描述和 schema
+应只含可公开的契约信息。schema 在注册时复制，目录每次返回独立副本，修改原 schema、
+返回的 `ToolDefinition.parameters_schema` 或目录均不会改变已注册工具的验证规则。
 
 `to_task_registry()` 返回普通字典，可直接传入 `TaskEngine(task_registry=...)`
 和 `RemoteWorker(..., task_registry=...)`。导出时会固定当前工具集合，之后再注册
@@ -33,7 +61,7 @@ result = handlers[TOOL_HANDLER](
 唯一注册名称约束。重启和跨主机部署必须保留名称、签名与行为契约的一致性。
 
 输入和输出在调用边界复制为 JSON 快照，工具对参数的修改不会影响其他节点。
-未知工具和签名不匹配会在执行工具前失败；工作流输入不能注册工具、动态导入模块
+未知工具、签名不匹配和 schema 不匹配会在执行工具前失败；工作流输入不能注册工具、动态导入模块
 或执行任意代码。工具函数本身是受信任的部署代码。
 
 ## HTTP 请求执行器
@@ -173,7 +201,7 @@ DAGNode('call', 'tool.call.v1', inputs={
 
 | 情形 | 类别与自动重试 |
 | --- | --- |
-| 未注册工具、输入/签名错误、不允许的 origin、TLS 证书无效 | permanent，不重试 |
+| 未注册工具、输入/签名/schema 错误、不允许的 origin、TLS 证书无效 | permanent，不重试 |
 | GET/HEAD/OPTIONS 的网络失败、408/425/429、大多数 5xx | transient，受现有预算约束 |
 | POST/PUT/PATCH/DELETE 的上述失败 | uncertain，不自动重试 |
 | 其他非 2xx（包括重定向、501/505） | permanent，不重试 |

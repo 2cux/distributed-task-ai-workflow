@@ -7,11 +7,10 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, ProxyHandler, build_opener
 
-from workflow_engine import (DAGNode, DAGWorkflow, HTTPConfig, HTTP_HANDLER, InputBinding,
+from workflow_engine import (DAGNode, DAGWorkflow, HTTPConfig, HTTPRequestHandler, HTTP_HANDLER, InputBinding,
                              NodeStatus, OutputRef, RemoteWorker, RetryPolicy, TOOL_HANDLER,
-                             TaskEngine, TaskEventType, WorkflowOrchestrator, WorkflowStatus,
-                             create_http_registry)
-from tool_test_support import local_service
+                             TaskEngine, TaskEventType, ToolRegistry, WorkflowOrchestrator, WorkflowStatus)
+from tool_test_support import local_service, WRITE_PARAMETERS_SCHEMA
 
 
 class RemoteToolTests(unittest.TestCase):
@@ -19,7 +18,11 @@ class RemoteToolTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1], prefix='.tool-remote-')
         self.addCleanup(temporary.cleanup)
         self.service = local_service(self)
-        self.handlers = create_http_registry(HTTPConfig((self.service.origin,)))
+        registry = ToolRegistry()
+        http = HTTPRequestHandler(HTTPConfig((self.service.origin,)))
+        registry.register(HTTP_HANDLER, http)
+        registry.register('typed.write', http, parameters_schema=WRITE_PARAMETERS_SCHEMA)
+        self.handlers = registry.to_task_registry()
         def placeholder():
             def forbidden(*args, **kwargs):
                 raise AssertionError('central process must not execute external tools')
@@ -128,6 +131,50 @@ class RemoteToolTests(unittest.TestCase):
         failures = [e for e in self.engine.get_events(result.nodes['action'].task_id)
                     if e.event_type is TaskEventType.FAILED]
         self.assertFalse(failures[0].details['retryable'])
+        self.assertIsNone(self.worker.last_error)
+
+    def test_remote_schema_validation_prevents_effects_and_transports_permanent_failure(self):
+        for dynamic in (False, True):
+            with self.subTest(dynamic=dynamic):
+                arguments = dict(url=self.service.origin + '/actions', method='POST',
+                                 json_body={'id': 'secret-invalid-id'})
+                handler = TOOL_HANDLER if dynamic else 'typed.write'
+                kwargs = dict(tool_name='typed.write', arguments=arguments) if dynamic else arguments
+                workflow = DAGWorkflow((
+                    DAGNode('action', handler, kwargs=kwargs, idempotent=True),
+                    DAGNode('tail', HTTP_HANDLER, kwargs={'url': self.service.origin}, depends_on=('action',)),
+                ))
+                self.orchestrator.submit(workflow)
+                result = self.orchestrator.run(workflow.id, execute=False, timeout=10)
+                self.assertEqual(result.status, WorkflowStatus.FAILED)
+                self.assertEqual((result.nodes['action'].attempt_count, result.nodes['action'].retry_count), (1, 0))
+                self.assertEqual(result.nodes['tail'].status, NodeStatus.SKIPPED)
+                task_id = result.nodes['action'].task_id
+                error = self.engine.get_task(task_id).error
+                self.assertEqual(error.failure_category.value, 'permanent')
+                self.assertIn('ToolInputError', str(error))
+                self.assertNotIn('secret-invalid-id', str(error))
+                failures = [e for e in self.engine.get_events(task_id) if e.event_type is TaskEventType.FAILED]
+                self.assertEqual(failures[0].details['failure_category'], 'permanent')
+                self.assertFalse(failures[0].details['retryable'])
+        self.assertEqual(self.service.calls, [])
+        self.assertEqual(self.service.effects, [])
+        self.assertIsNone(self.worker.last_error)
+
+    def test_management_api_and_remote_worker_accept_valid_schema_arguments(self):
+        service = self.start_management()
+        workflow = DAGWorkflow((
+            DAGNode('static', 'typed.write', kwargs=dict(url=self.service.origin + '/actions',
+                    method='POST', json_body={'id': 1})),
+            DAGNode('dynamic', TOOL_HANDLER, kwargs=dict(tool_name='typed.write',
+                    arguments=dict(url=self.service.origin + '/actions', method='POST', json_body={'id': 2})),
+                    depends_on=('static',)),
+        ))
+        code, body = self.management_call(service, '/api/v1/workflows', workflow.to_dict())
+        self.assertEqual(code, 202, body)
+        result = self.orchestrator.run(workflow.id, execute=False, timeout=10)
+        self.assertEqual(result.status, WorkflowStatus.SUCCESS)
+        self.assertEqual(self.service.effects, [{'id': 1}, {'id': 2}])
         self.assertIsNone(self.worker.last_error)
 
     def test_remote_read_can_retry_under_the_central_budget(self):

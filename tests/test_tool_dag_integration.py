@@ -8,7 +8,7 @@ import unittest
 from workflow_engine import (DAGNode, DAGWorkflow, HTTPConfig, HTTPRequestHandler, HTTP_HANDLER,
                              InputBinding, NodeStatus, OutputRef, RetryPolicy, TOOL_HANDLER,
                              TaskEngine, TaskEventType, ToolRegistry, WorkflowOrchestrator, WorkflowStatus)
-from tool_test_support import local_service
+from tool_test_support import local_service, WRITE_PARAMETERS_SCHEMA
 
 
 class ToolDAGTests(unittest.TestCase):
@@ -18,8 +18,10 @@ class ToolDAGTests(unittest.TestCase):
         self.database = Path(temporary.name) / 'workflow.db'
         self.service = local_service(self)
         self.registry = ToolRegistry()
-        self.registry.register(HTTP_HANDLER, HTTPRequestHandler(HTTPConfig((self.service.origin,),
-                               default_headers={'Authorization': 'Bearer only-on-worker'})))
+        http = HTTPRequestHandler(HTTPConfig((self.service.origin,),
+                                  default_headers={'Authorization': 'Bearer only-on-worker'}))
+        self.registry.register(HTTP_HANDLER, http)
+        self.registry.register('typed.write', http, parameters_schema=WRITE_PARAMETERS_SCHEMA)
         self.registry.register('identity', lambda data: data)
         self.handlers = self.registry.to_task_registry()
         self.engine = TaskEngine(database_path=self.database, task_registry=self.handlers,
@@ -88,6 +90,34 @@ class ToolDAGTests(unittest.TestCase):
         self.assertEqual(result.nodes['tail'].status, NodeStatus.SKIPPED)
         self.assertEqual(result.nodes['independent'].result, 7)
         self.assertEqual(self.service.calls, [])
+
+    def test_bound_schema_arguments_fail_before_http_and_preserve_failure_metadata(self):
+        for dynamic in (False, True):
+            with self.subTest(dynamic=dynamic):
+                arguments = dict(url=self.service.origin + '/actions', method='POST', json_body={})
+                handler = TOOL_HANDLER if dynamic else 'typed.write'
+                kwargs = dict(tool_name='typed.write', arguments=arguments) if dynamic else arguments
+                target = ('arguments', 'json_body', 'id') if dynamic else ('json_body', 'id')
+                result = self.run_flow(
+                    DAGNode('plan', 'identity', kwargs={'data': 'secret-invalid-id'}),
+                    DAGNode('action', handler, kwargs=kwargs,
+                            bindings=(InputBinding(target, OutputRef('plan')),), idempotent=True),
+                    DAGNode('tail', 'identity', inputs={'data': OutputRef('action')}),
+                    DAGNode('independent', 'identity', kwargs={'data': 7}),
+                )
+                self.assertEqual(result.status, WorkflowStatus.FAILED)
+                self.assertEqual((result.nodes['action'].attempt_count, result.nodes['action'].retry_count), (1, 0))
+                self.assertEqual(result.nodes['tail'].status, NodeStatus.SKIPPED)
+                self.assertEqual(result.nodes['independent'].result, 7)
+                task_id = result.nodes['action'].task_id
+                error = self.engine.get_task(task_id).error
+                self.assertEqual(error.failure_category.value, 'permanent')
+                self.assertNotIn('secret-invalid-id', str(error))
+                failures = [e for e in self.engine.get_events(task_id) if e.event_type is TaskEventType.FAILED]
+                self.assertEqual(failures[0].details['failure_category'], 'permanent')
+                self.assertFalse(failures[0].details['retryable'])
+        self.assertEqual(self.service.calls, [])
+        self.assertEqual(self.service.effects, [])
 
     def test_read_transient_failure_is_retried_before_downstream_action(self):
         self.service.replies.append((503, {'error': 'busy'}, {}))

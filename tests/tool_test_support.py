@@ -6,6 +6,19 @@ from threading import Lock, Thread
 import time
 
 
+WRITE_PARAMETERS_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'url': {'type': 'string'},
+        'method': {'enum': ['POST']},
+        'json_body': {'type': 'object', 'properties': {'id': {'type': 'integer'}},
+                      'required': ['id'], 'additionalProperties': False},
+    },
+    'required': ['url', 'method', 'json_body'],
+    'additionalProperties': False,
+}
+
+
 class ToolService:
     def __init__(self):
         self.calls = []

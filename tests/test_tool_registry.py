@@ -1,4 +1,6 @@
 """Tool contract tests: no network, database or model credentials required."""
+from copy import deepcopy
+import json
 import unittest
 
 from workflow_engine import (Executor, RetryPolicy, Task, TaskEngine, TaskStatus, TOOL_HANDLER,
@@ -7,6 +9,141 @@ from workflow_engine import (Executor, RetryPolicy, Task, TaskEngine, TaskStatus
 
 
 class ToolRegistryTests(unittest.TestCase):
+    def test_schema_checks_static_and_dynamic_calls_before_effects(self):
+        calls = []
+        schema = {'type': 'object', 'properties': {
+            'count': {'type': 'integer', 'minimum': 1, 'maximum': 3},
+            'data': {'type': 'array', 'minItems': 1, 'maxItems': 2, 'items': {
+                'type': 'object', 'properties': {'name': {'type': 'string', 'minLength': 1, 'maxLength': 4}},
+                'required': ['name'], 'additionalProperties': False}},
+        }, 'required': ['count', 'data'], 'additionalProperties': False}
+        def effect(count, data=None, **extra):
+            calls.append((count, data, extra))
+            return count
+        registry = ToolRegistry()
+        registry.register('effect', effect, parameters_schema=schema)
+        handlers = registry.to_task_registry()
+        invalid = [dict(count=True, data=[{'name': 'ok'}]),
+                   dict(count='secret-input', data=[{'name': 'ok'}]),
+                   dict(count=0, data=[{'name': 'ok'}]), dict(count=4, data=[{'name': 'ok'}]),
+                   dict(count=1), dict(count=1, data=[]), dict(count=1, data=[{}, {}, {}]),
+                   dict(count=1, data=[{'name': ''}]), dict(count=1, data=[{'name': 'large'}]),
+                   dict(count=1, data=[{'name': 'ok', 'extra': 1}]),
+                   dict(count=1, data=[{'name': 'ok'}], extra='secret-input'),
+                   dict(count=float('nan'), data=[{'name': 'ok'}])]
+        for arguments in invalid:
+            for dynamic in (False, True):
+                with self.subTest(arguments=arguments, dynamic=dynamic), self.assertRaises(ToolInputError) as caught:
+                    if dynamic:
+                        handlers[TOOL_HANDLER]('effect', arguments)
+                    else:
+                        handlers['effect'](arguments['count'], **{k: v for k, v in arguments.items() if k != 'count'})
+                self.assertNotIn('secret-input', str(caught.exception))
+                self.assertEqual(caught.exception.failure_category.value, 'permanent')
+        self.assertEqual(calls, [])
+        self.assertEqual(handlers['effect'](2, [{'name': '资料'}]), 2)
+        self.assertEqual(handlers[TOOL_HANDLER]('effect', dict(count=1.0, data=[{'name': 'ok'}])), 1.0)
+        self.assertEqual(len(calls), 2)
+
+    def test_schema_and_catalog_are_detached_from_all_public_objects(self):
+        schema = {'type': 'object', 'properties': {'value': {'type': 'integer'}}, 'required': ['value']}
+        original = deepcopy(schema)
+        registry = ToolRegistry()
+        definition = registry.register('echo', lambda value: value, parameters_schema=schema)
+        handlers = registry.to_task_registry()
+        schema['properties']['value']['type'] = 'string'
+        definition.parameters_schema['properties'].clear()
+        catalog = registry.describe()
+        self.assertEqual(catalog, [{'name': 'echo', 'description': '', 'parameters_schema': original}])
+        catalog[0]['parameters_schema']['properties']['value']['type'] = 'boolean'
+        registry.register('later', lambda: None)
+        self.assertEqual(registry.describe()[0]['parameters_schema'], original)
+        for invoke in (lambda: handlers['echo']('bad'), lambda: handlers[TOOL_HANDLER]('echo', {'value': 'bad'})):
+            with self.assertRaises(ToolInputError):
+                invoke()
+        self.assertEqual(handlers['echo'](1), 1)
+
+    def test_catalog_never_introspects_or_serializes_defaults_and_annotations(self):
+        class Secret:
+            def __repr__(self):
+                raise AssertionError('default or annotation repr must not be used')
+        secret = Secret()
+        def action(value: secret = secret):
+            return 'ok'
+        registry = ToolRegistry()
+        registry.register('legacy', action)
+        registry.register('typed', action, parameters_schema={'type': 'object'})
+        self.assertEqual(json.loads(json.dumps(registry.describe())), [
+            {'name': 'legacy', 'description': ''},
+            {'name': 'typed', 'description': '', 'parameters_schema': {'type': 'object'}},
+        ])
+        self.assertEqual(registry.to_task_registry()['typed'](), 'ok')
+
+    def test_invalid_schemas_fail_registration_atomically(self):
+        cyclic = {'type': 'object'}
+        cyclic['properties'] = {'loop': cyclic}
+        invalid = [True, [], 'object', {}, {'type': 'array'}, {'type': ['object']},
+                   {'type': 'object', '$ref': 'https://secret.invalid/schema'},
+                   {'type': 'object', 'properties': []},
+                   {'type': 'object', 'properties': {'x': {'type': 'unknown'}}},
+                   {'type': 'object', 'properties': {'x': False}},
+                   {'type': 'object', 'required': 'x'}, {'type': 'object', 'required': [1]},
+                   {'type': 'object', 'required': ['x', 'x']},
+                   {'type': 'object', 'additionalProperties': {}},
+                   {'type': 'object', 'items': []}, {'type': 'object', 'enum': []},
+                   {'type': 'object', 'enum': [1, 1.0]},
+                   {'type': 'object', 'enum': [{'x': [1]}, {'x': [1.0]}]},
+                   {'type': 'object', 'description': object()},
+                   {'type': 'object', 'properties': {1: {}}},
+                   {'type': 'object', 'minimum': True}, {'type': 'object', 'minimum': float('inf')},
+                   {'type': 'object', 'maxLength': True}, {'type': 'object', 'minItems': -1}, cyclic]
+        for schema in invalid:
+            registry = ToolRegistry()
+            with self.subTest(schema_type=type(schema).__name__), self.assertRaises(ValueError) as caught:
+                registry.register('bad', lambda: None, parameters_schema=schema)
+            self.assertNotIn('secret.invalid', str(caught.exception))
+            self.assertEqual(registry.describe(), [])
+            self.assertEqual(set(registry.to_task_registry()), {TOOL_HANDLER})
+
+    def test_schema_types_and_enum_use_json_semantics(self):
+        for kind, valid, invalid in [('boolean', True, 1), ('null', None, 'null'),
+                                     ('number', 1.5, True), ('integer', 1.0, 1.5),
+                                     ('string', 'x', 1), ('array', [], {}), ('object', {}, [])]:
+            registry = ToolRegistry()
+            registry.register('echo', lambda value: value, parameters_schema={
+                'type': 'object', 'properties': {'value': {'type': kind}}})
+            invoke = registry.to_task_registry()[TOOL_HANDLER]
+            with self.subTest(kind=kind):
+                self.assertEqual(invoke('echo', {'value': valid}), valid)
+                with self.assertRaises(ToolInputError):
+                    invoke('echo', {'value': invalid})
+        registry = ToolRegistry()
+        registry.register('enum', lambda value: value, parameters_schema={
+            'type': 'object', 'properties': {'value': {'enum': [{'x': [1]}, True, None]}}})
+        invoke = registry.to_task_registry()['enum']
+        for valid in ({'x': [1.0]}, True, None):
+            self.assertEqual(invoke(valid), valid)
+        for invalid in ({'x': [True]}, 1, False):
+            with self.assertRaises(ToolInputError):
+                invoke(invalid)
+
+    def test_variadic_and_positional_only_arguments_and_signature_gate(self):
+        calls = []
+        def action(value, /, *items, flag=False, **extra):
+            calls.append(1)
+            return [value, list(items), flag, extra]
+        registry = ToolRegistry()
+        registry.register('action', action, parameters_schema={
+            'type': 'object', 'properties': {'value': {'type': 'integer'},
+                'items': {'type': 'array', 'items': {'type': 'string'}}, 'flag': {'type': 'boolean'},
+                'label': {'type': 'string'}}, 'additionalProperties': False})
+        invoke = registry.to_task_registry()['action']
+        self.assertEqual(invoke(1, 'x', flag=True, label='ok'), [1, ['x'], True, {'label': 'ok'}])
+        for args, kwargs in [((1, 2), {}), ((1,), {'value': 'collision'}), ((), {'value': 1})]:
+            with self.assertRaises(ToolInputError):
+                invoke(*args, **kwargs)
+        self.assertEqual(calls, [1])
+
     def test_standalone_executor_enforces_the_same_tool_boundaries(self):
         with self.assertRaises(TypeError):
             ToolExecutor({'bad': None})
